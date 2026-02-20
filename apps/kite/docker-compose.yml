@@ -1,101 +1,12 @@
 services:
-  # The main Kite app.
-  # Thank you for choosing us!
-  app:
-    image: kite:latest
-    build:
-      context: .
-      target: runtime
-    environment:
-      # You probably do not want to change this.
-      NODE_ENV: ${NODE_ENV:-production}
-      # Change this!!
-      DATABASE_URL: ${DATABASE_URL:-postgres://kite:kite@postgres:5432/kite}
-      # This should be fine as is.
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      # The next three are self-explanatory.
-      DB_CONNECT_MAX_RETRIES: ${DB_CONNECT_MAX_RETRIES:-60}
-      DB_CONNECT_RETRY_DELAY_MS: ${DB_CONNECT_RETRY_DELAY_MS:-2000}
-      DB_MIGRATE_MAX_ATTEMPTS: ${DB_MIGRATE_MAX_ATTEMPTS:-5}
-      # The origin to use for the authentication.
-      ORIGIN: ${ORIGIN:-http://localhost:3000}
-      # Should migrations occur on startup?
-      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
-    ports:
-      - '127.0.0.1:3000:3000'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - uploads:/app/uploads
-    init: true
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    pids_limit: 256
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
-    restart: unless-stopped
-
-  # Background worker for our maintenance jobs system.
-  # It handles expiry of shares and removal of old files.
-  worker:
-    image: kite:latest
-    build:
-      context: .
-      target: runtime
-    command: ['node', 'scripts/worker.mjs']
-    environment:
-      # You probably do not want to change this.
-      NODE_ENV: ${NODE_ENV:-production}
-      # Change this!!
-      DATABASE_URL: ${DATABASE_URL:-postgres://kite:kite@postgres:5432/kite}
-      # This should be fine as is.
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      # How long to keep unused uploads before expiry.
-      UNUSED_UPLOAD_EXPIRY_MINUTES: ${UNUSED_UPLOAD_EXPIRY_MINUTES:-60}
-      # How often to scan for expired shares.
-      SHARE_EXPIRY_SCAN_INTERVAL_MS: ${SHARE_EXPIRY_SCAN_INTERVAL_MS:-60000}
-      # How often to scan for unused uploads.
-      UNUSED_UPLOAD_SCAN_INTERVAL_MS: ${UNUSED_UPLOAD_SCAN_INTERVAL_MS:-60000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    init: true
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    pids_limit: 256
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
-    restart: unless-stopped
-
-  # Postgres is used for our database.
-  # It's awesome :D
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-kite}
       POSTGRES_USER: ${POSTGRES_USER:-kite}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kite}
+    ports:
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     init: true
@@ -111,16 +22,13 @@ services:
         max-file: '3'
     restart: unless-stopped
 
-  # This is strictly used for our maintenance jobs system.
-  # We use Dragonfly because of Redis' shady licensing.
-  # (Dragonfly is also really fast.)
   redis:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
-    command: ['--default_lua_flags=allow-undeclared-keys']
-    ulimits:
-      memlock: -1
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
     ports:
       - '127.0.0.1:6379:6379'
+    volumes:
+      - redis_data:/data
     init: true
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -134,28 +42,6 @@ services:
         max-file: '3'
     restart: unless-stopped
 
-  # Drizzle gateway is here in case we need to make any manual queries or changes to the database.
-  # You probably do not want this in production, but just in case, we require a password.
-  # Remember, Kite is beta software so it is recommended to just comment this out instead of removing it.
-  drizzle-gateway:
-    image: ghcr.io/drizzle-team/gateway:latest
-    environment:
-      PORT: ${DRIZZLE_GATEWAY_PORT:-4983}
-      STORE_PATH: /app
-      MASTERPASS: ${DRIZZLE_GATEWAY_MASTERPASS:?DRIZZLE_GATEWAY_MASTERPASS is required}
-    ports:
-      - '127.0.0.1:${DRIZZLE_GATEWAY_PORT:-4983}:${DRIZZLE_GATEWAY_PORT:-4983}'
-    volumes:
-      - drizzle-gateway:/app
-    init: true
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '3'
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  uploads:
-  drizzle-gateway:
+  redis_data:
