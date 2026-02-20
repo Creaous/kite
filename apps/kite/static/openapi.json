@@ -1,0 +1,862 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Kite API",
+    "version": "1.0.0",
+    "description": "API reference generated from route-level OpenAPI JSDoc comments."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5173",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/public/share-requests/{code}": {
+      "get": {
+        "tags": [
+          "PublicShareRequests"
+        ],
+        "summary": "Get public share request by code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share request found"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "404": {
+            "description": "Share request not found"
+          }
+        }
+      }
+    },
+    "/api/v1/public/share-requests/{code}/anonymous-token": {
+      "post": {
+        "tags": [
+          "PublicShareRequests"
+        ],
+        "summary": "Create a limited anonymous token for a share request",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Anonymous token created"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "403": {
+            "description": "Anonymous access disabled"
+          },
+          "404": {
+            "description": "Share request not found"
+          },
+          "429": {
+            "description": "Anonymous token limit reached"
+          },
+          "500": {
+            "description": "Failed to create anonymous token"
+          }
+        }
+      }
+    },
+    "/api/v1/public/share-requests/{code}/respond": {
+      "post": {
+        "tags": [
+          "PublicShareRequests"
+        ],
+        "summary": "Respond to a share request with uploads",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "uploads"
+                ],
+                "properties": {
+                  "uploads": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Share request response accepted"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share request not found or not open"
+          },
+          "500": {
+            "description": "Failed to respond to share request"
+          }
+        }
+      }
+    },
+    "/api/v1/public/shares/{code}": {
+      "get": {
+        "tags": [
+          "PublicShares"
+        ],
+        "summary": "Get public share details",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public share fetched"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid password"
+          },
+          "404": {
+            "description": "Share not found or expired"
+          },
+          "500": {
+            "description": "Failed to fetch share"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "PublicShares"
+        ],
+        "summary": "Unlock and get public share details",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "password"
+                ],
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Public share fetched"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid password"
+          },
+          "404": {
+            "description": "Share not found or expired"
+          },
+          "500": {
+            "description": "Failed to fetch share"
+          }
+        }
+      }
+    },
+    "/api/v1/public/shares/{code}/download": {
+      "post": {
+        "tags": [
+          "PublicShares"
+        ],
+        "summary": "Create a download token for a public share",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Download token created"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid password"
+          },
+          "403": {
+            "description": "Download limit reached"
+          },
+          "404": {
+            "description": "Share not found or expired"
+          },
+          "500": {
+            "description": "Failed to issue download token"
+          }
+        }
+      }
+    },
+    "/api/v1/public/shares/{code}/download/zip": {
+      "post": {
+        "tags": [
+          "PublicShares"
+        ],
+        "summary": "Download public share files as zip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Zip archive stream",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid password"
+          },
+          "403": {
+            "description": "Download limit reached"
+          },
+          "404": {
+            "description": "Share not found or expired"
+          },
+          "500": {
+            "description": "Failed to create zip download"
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests/{requestId}": {
+      "patch": {
+        "tags": [
+          "ShareRequests"
+        ],
+        "summary": "Update a share request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "fulfilled",
+                      "expired",
+                      "deleted"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Share request updated"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share request not found"
+          },
+          "500": {
+            "description": "Failed to update share request"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ShareRequests"
+        ],
+        "summary": "Delete a share request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Share request deleted"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share request not found"
+          },
+          "500": {
+            "description": "Failed to delete share request"
+          }
+        }
+      }
+    },
+    "/api/v1/share-requests": {
+      "get": {
+        "tags": [
+          "ShareRequests"
+        ],
+        "summary": "List share requests",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share requests fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Failed to fetch share requests"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ShareRequests"
+        ],
+        "summary": "Create a share request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "requester": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "createdBy": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Share request created"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Failed to create share request"
+          }
+        }
+      }
+    },
+    "/api/v1/shares/{shareId}": {
+      "get": {
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Get share by id",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shareId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share found"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Delete share by id",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shareId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Share deleted"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share not found"
+          },
+          "500": {
+            "description": "Failed to delete share"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Update share by id",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shareId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "hideMessageBehindPassword": {
+                    "type": "boolean"
+                  },
+                  "maxDownloads": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Share updated"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Share not found"
+          },
+          "500": {
+            "description": "Failed to update share"
+          }
+        }
+      }
+    },
+    "/api/v1/shares": {
+      "get": {
+        "tags": [
+          "Shares"
+        ],
+        "summary": "List shares",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shares fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Failed to fetch shares"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Shares"
+        ],
+        "summary": "Create a share",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "uploads"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "hideMessageBehindPassword": {
+                    "type": "boolean"
+                  },
+                  "maxDownloads": {
+                    "type": "number"
+                  },
+                  "createdBy": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "uploads": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Share created"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Failed to create share"
+          }
+        }
+      }
+    },
+    "/api/v1/tokens": {
+      "post": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Create a signed token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subject",
+                  "expiresInSec"
+                ],
+                "properties": {
+                  "subject": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "default": "download"
+                  },
+                  "expiresInSec": {
+                    "type": "number",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Failed to create token"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}
