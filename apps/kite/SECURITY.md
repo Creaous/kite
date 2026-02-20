@@ -24,8 +24,8 @@ Please **do not** open public issues for security vulnerabilities.
 
 Report privately by contacting the maintainers through one of the private channels below:
 
-- Project security contact email (preferred)
-- Private maintainer contact channel used by this project
+- Project security contact email (preferred): [kite-security@creaous.net](mailto:kite-security@creaous.net)
+- Primary maintainer contact on Matrix ([@Mitchell](https://git.codeguilds.org/Mitchell)): [matrix.to/#/@mitchell:codeguilds.org](https://matrix.to/#/@mitchell:codeguilds.org)
 
 If no direct security contact is published, open a minimal private contact request and ask for a secure channel for disclosure.
 
