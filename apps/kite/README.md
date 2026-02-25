@@ -82,16 +82,10 @@ The app runs `scripts/migrate.mjs` during container startup when applicable.
    # edit .env and replace all CHANGE_ME_* values before first start
    ```
 
-- Production stack (app + db + redis):
+- Production stack (app + worker + db + redis):
 
    ```bash
    docker compose -f docker-compose.prod.yml up --build -d
-   ```
-
-- Production stack with worker:
-
-   ```bash
-   docker compose -f docker-compose.prod.yml --profile worker up --build -d
    ```
 
 Notes:
