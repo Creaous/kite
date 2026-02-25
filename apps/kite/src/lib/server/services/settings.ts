@@ -31,7 +31,7 @@ const defaultBranding: BrandingSettings = {
 	tagline: '',
 	logoUrl: '',
 	faviconUrl: '',
-	disableIndexing: false
+	disableIndexing: true
 };
 
 function normalizeAuthSettingsDefaults(

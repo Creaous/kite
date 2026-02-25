@@ -17,7 +17,7 @@ describe('settings service (db)', () => {
 		expect(branding.tagline).toBe('');
 		expect(branding.logoUrl).toBe('');
 		expect(branding.faviconUrl).toBe('');
-		expect(branding.disableIndexing).toBe(false);
+		expect(branding.disableIndexing).toBe(true);
 	});
 
 	it('saves and reloads branding settings', async () => {
@@ -26,11 +26,11 @@ describe('settings service (db)', () => {
 			tagline: 'Share faster',
 			logoUrl: 'https://example.com/logo.svg',
 			faviconUrl: 'https://example.com/favicon.ico',
-			disableIndexing: true
+			disableIndexing: false
 		});
 
 		expect(saved.appName).toBe('Kite Pro');
-		expect(saved.disableIndexing).toBe(true);
+		expect(saved.disableIndexing).toBe(false);
 
 		const reloaded = await getBrandingSettings();
 		expect(reloaded).toEqual(saved);
