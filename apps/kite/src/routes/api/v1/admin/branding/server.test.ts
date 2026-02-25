@@ -48,7 +48,7 @@ describe('GET/PUT /api/v1/admin/branding', () => {
 		expect(body.data.tagline).toBe('');
 		expect(body.data.logoUrl).toBe('');
 		expect(body.data.faviconUrl).toBe('');
-		expect(body.data.disableIndexing).toBe(false);
+		expect(body.data.disableIndexing).toBe(true);
 	});
 
 	it('returns 400 when appName is missing', async () => {
