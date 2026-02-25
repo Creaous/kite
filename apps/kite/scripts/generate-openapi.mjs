@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import swaggerJsdoc from 'swagger-jsdoc';
+import pkg from '../package.json' with { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,11 +11,11 @@ const outputPath = path.resolve(repoRoot, 'static', 'openapi.json');
 
 const spec = swaggerJsdoc({
 	definition: {
-		openapi: '3.0.3',
+		openapi: '3.1.0',
 		info: {
-			title: 'Kite API',
-			version: '1.0.0',
-			description: 'API reference generated from route-level OpenAPI JSDoc comments.'
+			title: `${pkg.name.charAt(0).toUpperCase() + pkg.name.slice(1)} API`,
+			version: pkg.version,
+			description: pkg.description
 		},
 		servers: [{ url: 'http://localhost:5173', description: 'Local development server' }],
 		components: {

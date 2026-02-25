@@ -1,5 +1,6 @@
 {
 	"name": "kite",
+	"description": "A self-hosted file-sharing application built with SvelteKit and PostgreSQL (Drizzle ORM).",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
