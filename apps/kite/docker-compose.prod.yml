@@ -1,0 +1,136 @@
+services:
+  app:
+    image: kite:latest
+    build:
+      context: .
+      target: runtime
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DB_CONNECT_MAX_RETRIES: ${DB_CONNECT_MAX_RETRIES:-60}
+      DB_CONNECT_RETRY_DELAY_MS: ${DB_CONNECT_RETRY_DELAY_MS:-2000}
+      DB_MIGRATE_MAX_ATTEMPTS: ${DB_MIGRATE_MAX_ATTEMPTS:-5}
+      ORIGIN: ${ORIGIN:?ORIGIN is required}
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    restart: unless-stopped
+
+  worker:
+    image: git.codeguilds.org/mitchell/kite:latest
+    build:
+      context: .
+      target: runtime
+    command: ['node', 'scripts/worker.mjs']
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      UNUSED_UPLOAD_EXPIRY_MINUTES: ${UNUSED_UPLOAD_EXPIRY_MINUTES:-60}
+      SHARE_EXPIRY_SCAN_INTERVAL_MS: ${SHARE_EXPIRY_SCAN_INTERVAL_MS:-60000}
+      UNUSED_UPLOAD_SCAN_INTERVAL_MS: ${UNUSED_UPLOAD_SCAN_INTERVAL_MS:-60000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kite}
+      POSTGRES_USER: ${POSTGRES_USER:-kite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    init: true
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    restart: unless-stopped
+
+  redis:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    command: ['--default_lua_flags=allow-undeclared-keys']
+    ulimits:
+      memlock: -1
+    init: true
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    restart: unless-stopped
+
+  drizzle-gateway:
+    image: ghcr.io/drizzle-team/gateway:latest
+    profiles: ['ops']
+    environment:
+      PORT: ${DRIZZLE_GATEWAY_PORT:-4983}
+      STORE_PATH: /app
+      MASTERPASS: ${DRIZZLE_GATEWAY_MASTERPASS:?DRIZZLE_GATEWAY_MASTERPASS is required}
+    ports:
+      - '127.0.0.1:${DRIZZLE_GATEWAY_PORT:-4983}:${DRIZZLE_GATEWAY_PORT:-4983}'
+    volumes:
+      - drizzle-gateway:/app
+    init: true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads:
+  drizzle-gateway:
