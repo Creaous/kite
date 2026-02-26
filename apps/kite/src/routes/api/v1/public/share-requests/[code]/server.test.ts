@@ -20,6 +20,27 @@ describe('GET /api/v1/public/share-requests/:code', () => {
 		expect(body.data.code).toBe(req.code);
 	});
 
+	it('hides requester email when request is configured to hide it', async () => {
+		const req = await createShareRequest({
+			title: 'Need docs privately',
+			requester: { name: 'Alex', email: 'alex@example.com' },
+			hideRequesterEmail: true
+		});
+
+		const res = await GET(
+			createRequestEvent({
+				method: 'GET',
+				path: `/api/v1/public/share-requests/${req.code}`,
+				params: { code: req.code ?? '' }
+			}) as never
+		);
+
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.requesterEmail).toBeNull();
+		expect(body.data.hideRequesterEmail).toBe(true);
+	});
+
 	it('returns 404 when share request code is unknown', async () => {
 		const res = await GET(
 			createRequestEvent({

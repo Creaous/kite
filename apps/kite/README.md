@@ -96,6 +96,11 @@ Notes:
 - Gateway defaults to `http://localhost:4983` (override with `DRIZZLE_GATEWAY_PORT`).
 - Required prod vars include: `DATABASE_URL`, `ORIGIN`, and `POSTGRES_PASSWORD`.
 
+SMTP for share request emailing:
+
+- Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`.
+- If SMTP is not configured, the share request email endpoint returns `503`.
+
 ## Scripts
 
 Key scripts are exposed in `package.json`:

@@ -7,6 +7,7 @@ export type CreateShareRequestDTO = {
 	title: string;
 	message?: string | null;
 	requester?: { name?: string | null; email?: string | null } | null;
+	hideRequesterEmail?: boolean;
 	expiresAt?: string | Date | null;
 	createdBy?: string | null;
 };
@@ -42,6 +43,7 @@ export async function createShareRequest(dto: CreateShareRequestDTO) {
 			message: dto.message ?? null,
 			requesterName: dto.requester?.name ?? null,
 			requesterEmail: dto.requester?.email ?? null,
+			hideRequesterEmail: Boolean(dto.hideRequesterEmail),
 			expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
 			createdBy: dto.createdBy ?? null
 		})
@@ -94,6 +96,32 @@ export async function getShareRequestByCode(code: string) {
 		message: req.message,
 		requesterName: req.requesterName,
 		requesterEmail: req.requesterEmail,
+		hideRequesterEmail: req.hideRequesterEmail,
+		expiresAt: req.expiresAt,
+		status: req.status,
+		createdAt: req.createdAt
+	};
+}
+
+export async function getShareRequestById(requestId: string) {
+	if (!requestId) throw new Error('Missing request id');
+
+	const [req] = await db
+		.select()
+		.from(shareRequests)
+		.where(and(eq(shareRequests.id, requestId), isNull(shareRequests.deletedAt)))
+		.limit(1);
+
+	if (!req) return null;
+
+	return {
+		id: req.id,
+		code: req.code,
+		title: req.title,
+		message: req.message,
+		requesterName: req.requesterName,
+		requesterEmail: req.requesterEmail,
+		hideRequesterEmail: req.hideRequesterEmail,
 		expiresAt: req.expiresAt,
 		status: req.status,
 		createdAt: req.createdAt
@@ -109,6 +137,7 @@ export async function listShareRequests() {
 			message: shareRequests.message,
 			requesterName: shareRequests.requesterName,
 			requesterEmail: shareRequests.requesterEmail,
+			hideRequesterEmail: shareRequests.hideRequesterEmail,
 			expiresAt: shareRequests.expiresAt,
 			status: shareRequests.status,
 			createdAt: shareRequests.createdAt
@@ -125,6 +154,8 @@ export async function updateShareRequest(
 	dto: {
 		title?: string | null;
 		message?: string | null;
+		requester?: { name?: string | null; email?: string | null } | null;
+		hideRequesterEmail?: boolean;
 		expiresAt?: string | Date | null;
 		status?: 'open' | 'fulfilled' | 'expired' | 'deleted';
 	}
@@ -132,12 +163,20 @@ export async function updateShareRequest(
 	const values: {
 		title?: string | null;
 		message?: string | null;
+		requesterName?: string | null;
+		requesterEmail?: string | null;
+		hideRequesterEmail?: boolean;
 		expiresAt?: Date | null;
 		status?: 'open' | 'fulfilled' | 'expired' | 'deleted';
 	} = {};
 
 	if (dto.title !== undefined) values.title = dto.title;
 	if (dto.message !== undefined) values.message = dto.message;
+	if (dto.requester !== undefined) {
+		values.requesterName = dto.requester?.name ?? null;
+		values.requesterEmail = dto.requester?.email ?? null;
+	}
+	if (dto.hideRequesterEmail !== undefined) values.hideRequesterEmail = dto.hideRequesterEmail;
 	if (dto.expiresAt !== undefined)
 		values.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
 	if (dto.status !== undefined) values.status = dto.status;
@@ -157,6 +196,7 @@ export async function updateShareRequest(
 		message: updated.message,
 		requesterName: updated.requesterName,
 		requesterEmail: updated.requesterEmail,
+		hideRequesterEmail: updated.hideRequesterEmail,
 		expiresAt: updated.expiresAt,
 		status: updated.status,
 		createdAt: updated.createdAt
