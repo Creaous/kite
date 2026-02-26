@@ -13,6 +13,7 @@
 	let expiresAt = $state(defaultExpiryLocalDateTime());
 	let message = $state('');
 	let hideMessageBehindPassword = $state(false);
+	let highSensitivity = $state(false);
 	let maxDownloads = $state(0);
 	let uploads = $state<UploadedFile[]>([]);
 	let isSubmitting = $state(false);
@@ -70,6 +71,7 @@
 					password: password || undefined,
 					message: message || undefined,
 					hideMessageBehindPassword,
+					highSensitivity,
 					maxDownloads,
 					expiresAt: expiresAt || undefined,
 					uploads: uploads.map((file) => ({ uploadId: file.uploadId, name: file.relativePath }))
@@ -155,10 +157,22 @@
 						<span class="label-text">{m.share_hide_message_password()}</span>
 					</label>
 				</fieldset>
+
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">High sensitivity</legend>
+					<label class="label cursor-pointer justify-start gap-3">
+						<input class="toggle" type="checkbox" bind:checked={highSensitivity} />
+						<span class="label-text">High sensitivity</span>
+					</label>
+					<p class="mt-1 text-xs text-base-content/60">
+						Only applies to newly uploaded or pending files, not older files.
+					</p>
+				</fieldset>
 			</div>
 
 			<UnifiedUploadInterface
 				title={m.upload_files_for_share()}
+				{highSensitivity}
 				onuploaded={(files) => (uploads = files)}
 			/>
 

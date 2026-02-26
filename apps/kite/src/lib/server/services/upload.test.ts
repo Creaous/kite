@@ -130,6 +130,52 @@ describe('upload service (db)', () => {
 		expect(created.relativePath).toBe('folder-a/b.txt');
 	});
 
+	it('does not deduplicate when highSensitivity is true', async () => {
+		const [u] = await db
+			.insert(user)
+			.values({
+				id: 'user-hs-1',
+				name: 'user hs',
+				email: 'user-hs-1@example.com',
+				emailVerified: false
+			})
+			.returning();
+		createdUserIds.push(u.id);
+
+		const [existing] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'fp-hs-1',
+				filename: 'secret.txt',
+				size: 32,
+				uploadedBytes: 32,
+				status: 'ready',
+				uploadedBy: u.id,
+				highSensitivity: false
+			})
+			.returning();
+		createdIds.push(existing.id);
+
+		const result = await initiateUpload({
+			filename: 'secret.txt',
+			size: 32,
+			fingerprint: 'fp-hs-1',
+			uploadedBy: u.id,
+			highSensitivity: true
+		});
+
+		expect(result.uploadId).not.toBe(existing.id);
+		expect(result.deduplicated).toBe(false);
+		createdIds.push(result.uploadId);
+
+		const [created] = await db
+			.select({ highSensitivity: uploads.highSensitivity })
+			.from(uploads)
+			.where(eq(uploads.id, result.uploadId));
+
+		expect(created.highSensitivity).toBe(true);
+	});
+
 	it('appendChunk updates uploadedBytes', async () => {
 		const [created] = await db
 			.insert(uploads)

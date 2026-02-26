@@ -46,12 +46,14 @@ describe('GET /api/v1/admin/maintenance', () => {
 			{
 				job: 'expire-unused-uploads',
 				counts: { waiting: 1, active: 0, delayed: 0, completed: 3, failed: 0, paused: 0 },
-				isPaused: false
+				isPaused: false,
+				latestResult: { expiredUploads: 2, removedFromDisk: 1 }
 			},
 			{
 				job: 'expire-expired-shares',
 				counts: { waiting: 0, active: 1, delayed: 0, completed: 2, failed: 1, paused: 0 },
-				isPaused: false
+				isPaused: false,
+				latestResult: { expiredShares: 3, expiredHighSensitivityShares: 1 }
 			}
 		]);
 
@@ -67,6 +69,7 @@ describe('GET /api/v1/admin/maintenance', () => {
 		const body = await res.json();
 		expect(Array.isArray(body.data.queues)).toBe(true);
 		expect(body.data.queues).toHaveLength(2);
+		expect(body.data.queues[1].latestResult.expiredHighSensitivityShares).toBe(1);
 		expect(body.data.refreshedAt).toBeTruthy();
 	});
 

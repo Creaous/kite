@@ -144,6 +144,66 @@ describe('share service (db)', () => {
 		expect(res.status).toBe('deleted');
 	});
 
+	it('stores highSensitivity on share when enabled', async () => {
+		const [a] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 's-hs-share-fp',
+				filename: 'high-sensitive.txt',
+				size: 12,
+				uploadedBytes: 12,
+				status: 'ready',
+				highSensitivity: true
+			})
+			.returning();
+		createdUploads.push(a.id);
+
+		const share = await createShare({
+			title: 'High sensitivity share',
+			uploads: [{ uploadId: a.id }],
+			highSensitivity: true
+		});
+		createdShares.push(share.id);
+
+		const [shareRow] = await db
+			.select({ highSensitivity: shares.highSensitivity })
+			.from(shares)
+			.where(eq(shares.id, share.id));
+
+		expect(shareRow.highSensitivity).toBe(true);
+	});
+
+	it('softDeleteShare immediately deletes highSensitivity files linked to the share', async () => {
+		const [a] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 's-hs-delete-fp',
+				filename: 'delete-now.txt',
+				size: 20,
+				uploadedBytes: 20,
+				status: 'ready',
+				highSensitivity: true
+			})
+			.returning();
+		createdUploads.push(a.id);
+
+		const share = await createShare({
+			title: 'Delete high sensitivity',
+			uploads: [{ uploadId: a.id }],
+			highSensitivity: true
+		});
+		createdShares.push(share.id);
+
+		await softDeleteShare(share.id);
+
+		const [uploadRow] = await db
+			.select({ deletedAt: uploads.deletedAt })
+			.from(uploads)
+			.where(eq(uploads.id, a.id));
+
+		expect(uploadRow.deletedAt).toBeTruthy();
+	});
+
 	it('applies secure defaults for expiry and download limits', async () => {
 		const [a] = await db
 			.insert(uploads)

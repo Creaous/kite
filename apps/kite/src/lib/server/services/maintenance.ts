@@ -4,6 +4,7 @@ import { and, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { db } from '../db';
 import { shareUpload, shares, uploads } from '../db/schema';
+import { purgeHighSensitivityUploadsForShares } from './share';
 
 export async function expireUnusedUploads(options?: { olderThanMinutes?: number; now?: Date }) {
 	const now = options?.now ?? new Date();
@@ -68,9 +69,15 @@ export async function expireSharesWithExpiryDate(options?: { now?: Date }) {
 				lt(shares.expiresAt, now)
 			)
 		)
-		.returning({ id: shares.id });
+		.returning({ id: shares.id, highSensitivity: shares.highSensitivity });
+
+	await purgeHighSensitivityUploadsForShares(
+		expired.map((share) => share.id),
+		now
+	);
 
 	return {
-		expiredShares: expired.length
+		expiredShares: expired.length,
+		expiredHighSensitivityShares: expired.filter((share) => share.highSensitivity).length
 	};
 }

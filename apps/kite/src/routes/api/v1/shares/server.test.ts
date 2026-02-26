@@ -78,6 +78,33 @@ describe('GET/POST /api/v1/shares', () => {
 		expect(body.data.code).toBeDefined();
 	});
 
+	it('creates a high sensitivity share from uploads', async () => {
+		const created = await initiateUpload({
+			filename: 'shared-high-sensitivity.txt',
+			size: 10,
+			fingerprint: 'fp-api-share-hs-1',
+			highSensitivity: true
+		});
+		await finalizeUpload(created.uploadId, 'finalize');
+
+		const res = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: '/api/v1/shares',
+				authenticated: true,
+				body: {
+					title: 'My API High Sensitivity Share',
+					highSensitivity: true,
+					uploads: [{ uploadId: created.uploadId }]
+				}
+			}) as never
+		);
+
+		expect(res.status).toBe(201);
+		const body = await res.json();
+		expect(body.data.highSensitivity).toBe(true);
+	});
+
 	it('returns 400 when uploads are missing', async () => {
 		const res = await POST(
 			createRequestEvent({

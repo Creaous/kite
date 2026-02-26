@@ -29,10 +29,12 @@
 
 	let {
 		title = m.upload_title_default(),
-		onuploaded
+		onuploaded,
+		highSensitivity = false
 	}: {
 		title?: string;
 		onuploaded?: (files: UploadedFile[]) => void;
+		highSensitivity?: boolean;
 	} = $props();
 
 	let selectedEntries = $state<PendingUploadEntry[]>([]);
@@ -277,7 +279,8 @@
 				relativePath,
 				size: file.size,
 				fingerprint,
-				chunkSize: file.size
+				chunkSize: file.size,
+				highSensitivity
 			})
 		});
 

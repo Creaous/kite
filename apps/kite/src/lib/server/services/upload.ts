@@ -24,6 +24,7 @@ export async function initiateUpload(dto: {
 	uploadedBy?: string | null;
 	shareId?: string | null;
 	shareRequestId?: string | null;
+	highSensitivity?: boolean;
 }) {
 	const {
 		filename,
@@ -31,75 +32,80 @@ export async function initiateUpload(dto: {
 		size,
 		fingerprint,
 		chunkSize = undefined,
-		uploadedBy = null
+		uploadedBy = null,
+		highSensitivity = false
 	} = dto;
 	const normalizedRelativePath = relativePath ?? null;
 
 	if (!filename || !size || !fingerprint) throw new Error('Missing required upload parameters');
 
-	// Try to find existing uploads (idempotency / dedupe by content)
-	const whereClause = and(
-		eq(uploads.fingerprint, fingerprint),
-		uploadedBy ? eq(uploads.uploadedBy, uploadedBy) : isNull(uploads.uploadedBy),
-		isNull(uploads.deletedAt)
-	);
+	if (!highSensitivity) {
+		// Try to find existing uploads (idempotency / dedupe by content)
+		const whereClause = and(
+			eq(uploads.fingerprint, fingerprint),
+			uploadedBy ? eq(uploads.uploadedBy, uploadedBy) : isNull(uploads.uploadedBy),
+			eq(uploads.highSensitivity, false),
+			isNull(uploads.deletedAt)
+		);
 
-	const existingUploads = await db
-		.select()
-		.from(uploads)
-		.where(whereClause)
-		.orderBy(desc(uploads.createdAt))
-		.limit(25);
+		const existingUploads = await db
+			.select()
+			.from(uploads)
+			.where(whereClause)
+			.orderBy(desc(uploads.createdAt))
+			.limit(25);
 
-	const samePathExisting = existingUploads.find(
-		(existing) =>
-			existing.filename === filename &&
-			(existing.relativePath ?? null) === normalizedRelativePath &&
-			Number(existing.size ?? 0) === size
-	);
+		const samePathExisting = existingUploads.find(
+			(existing) =>
+				existing.filename === filename &&
+				(existing.relativePath ?? null) === normalizedRelativePath &&
+				Number(existing.size ?? 0) === size
+		);
 
-	if (samePathExisting) {
-		return {
-			uploadId: samePathExisting.id,
-			fingerprint: samePathExisting.fingerprint,
-			status: samePathExisting.status,
-			chunkSize: samePathExisting.chunkSize,
-			uploadedBytes: Number(samePathExisting.uploadedBytes ?? 0),
-			deduplicated: samePathExisting.status === 'ready'
-		};
-	}
+		if (samePathExisting) {
+			return {
+				uploadId: samePathExisting.id,
+				fingerprint: samePathExisting.fingerprint,
+				status: samePathExisting.status,
+				chunkSize: samePathExisting.chunkSize,
+				uploadedBytes: Number(samePathExisting.uploadedBytes ?? 0),
+				deduplicated: samePathExisting.status === 'ready'
+			};
+		}
 
-	const reusableReady = existingUploads.find(
-		(existing) => existing.status === 'ready' && Boolean(existing.storagePath)
-	);
+		const reusableReady = existingUploads.find(
+			(existing) => existing.status === 'ready' && Boolean(existing.storagePath)
+		);
 
-	if (reusableReady) {
-		const [createdFromExisting] = await db
-			.insert(uploads)
-			.values({
-				fingerprint,
-				filename,
-				relativePath: normalizedRelativePath,
-				size,
-				mimeType: reusableReady.mimeType,
-				chunkSize: chunkSize ?? reusableReady.chunkSize,
-				uploadedBytes: Number(reusableReady.uploadedBytes ?? size),
-				status: 'ready',
-				storageProvider: reusableReady.storageProvider,
-				storagePath: reusableReady.storagePath,
-				hash: reusableReady.hash,
-				uploadedBy: uploadedBy ?? null
-			})
-			.returning();
+		if (reusableReady) {
+			const [createdFromExisting] = await db
+				.insert(uploads)
+				.values({
+					fingerprint,
+					filename,
+					relativePath: normalizedRelativePath,
+					size,
+					mimeType: reusableReady.mimeType,
+					chunkSize: chunkSize ?? reusableReady.chunkSize,
+					uploadedBytes: Number(reusableReady.uploadedBytes ?? size),
+					status: 'ready',
+					storageProvider: reusableReady.storageProvider,
+					storagePath: reusableReady.storagePath,
+					hash: reusableReady.hash,
+					uploadedBy: uploadedBy ?? null,
+					highSensitivity: false
+				})
+				.returning();
 
-		return {
-			uploadId: createdFromExisting.id,
-			fingerprint: createdFromExisting.fingerprint,
-			status: createdFromExisting.status,
-			chunkSize: createdFromExisting.chunkSize,
-			uploadedBytes: Number(createdFromExisting.uploadedBytes ?? 0),
-			deduplicated: true
-		};
+			return {
+				uploadId: createdFromExisting.id,
+				fingerprint: createdFromExisting.fingerprint,
+				status: createdFromExisting.status,
+				chunkSize: createdFromExisting.chunkSize,
+				uploadedBytes: Number(createdFromExisting.uploadedBytes ?? 0),
+				deduplicated: true
+			};
+		}
 	}
 
 	const [created] = await db
@@ -112,7 +118,8 @@ export async function initiateUpload(dto: {
 			chunkSize: chunkSize ?? null,
 			uploadedBytes: 0,
 			status: 'pending',
-			uploadedBy: uploadedBy ?? null
+			uploadedBy: uploadedBy ?? null,
+			highSensitivity
 		})
 		.returning();
 
@@ -235,6 +242,7 @@ export async function listUploads(filters?: {
 		size: Number(row.size ?? 0),
 		uploadedBytes: Number(row.uploadedBytes ?? 0),
 		status: row.status,
+		highSensitivity: row.highSensitivity,
 		uploadedBy: row.uploadedBy,
 		createdAt: row.createdAt
 	}));

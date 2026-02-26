@@ -72,6 +72,8 @@ export const GET: RequestHandler = async ({ locals }) => {
  *                 type: boolean
  *               maxDownloads:
  *                 type: number
+ *               highSensitivity:
+ *                 type: boolean
  *               createdBy:
  *                 type: string
  *                 nullable: true
@@ -113,6 +115,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			message: typeof body?.message === 'string' ? body.message : null,
 			hideMessageBehindPassword: Boolean(body?.hideMessageBehindPassword),
 			maxDownloads: typeof body?.maxDownloads === 'number' ? body.maxDownloads : 0,
+			highSensitivity: Boolean(body?.highSensitivity),
 			uploads,
 			createdBy: typeof body?.createdBy === 'string' ? body.createdBy : null
 		});

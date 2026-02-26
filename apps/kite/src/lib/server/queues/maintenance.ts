@@ -16,6 +16,12 @@ export type MaintenanceQueueStatus = {
 		paused: number;
 	};
 	isPaused: boolean;
+	latestResult: {
+		expiredUploads?: number;
+		removedFromDisk?: number;
+		expiredShares?: number;
+		expiredHighSensitivityShares?: number;
+	} | null;
 };
 
 type QueueBundle = {
@@ -33,6 +39,36 @@ const EMPTY_COUNTS = {
 };
 
 let queues: QueueBundle | null = null;
+
+function readNumericCounter(input: unknown) {
+	return typeof input === 'number' && Number.isFinite(input) ? input : undefined;
+}
+
+async function readLatestResult(queue: Queue) {
+	const [latestCompleted] = await queue.getJobs(['completed'], 0, 0, false);
+	if (!latestCompleted || typeof latestCompleted.returnvalue !== 'object') {
+		return null;
+	}
+
+	const returnValue = latestCompleted.returnvalue as Record<string, unknown>;
+	const result = {
+		expiredUploads: readNumericCounter(returnValue.expiredUploads),
+		removedFromDisk: readNumericCounter(returnValue.removedFromDisk),
+		expiredShares: readNumericCounter(returnValue.expiredShares),
+		expiredHighSensitivityShares: readNumericCounter(returnValue.expiredHighSensitivityShares)
+	};
+
+	if (
+		result.expiredUploads === undefined &&
+		result.removedFromDisk === undefined &&
+		result.expiredShares === undefined &&
+		result.expiredHighSensitivityShares === undefined
+	) {
+		return null;
+	}
+
+	return result;
+}
 
 function getRedisUrl() {
 	const redisUrl = process.env.REDIS_URL;
@@ -81,9 +117,10 @@ async function readQueueStatus(
 	queue: Queue
 ): Promise<MaintenanceQueueStatus> {
 	try {
-		const [counts, paused] = await Promise.all([
+		const [counts, paused, latestResult] = await Promise.all([
 			queue.getJobCounts('waiting', 'active', 'delayed', 'completed', 'failed', 'paused'),
-			queue.isPaused()
+			queue.isPaused(),
+			readLatestResult(queue)
 		]);
 
 		return {
@@ -96,7 +133,8 @@ async function readQueueStatus(
 				failed: counts.failed ?? 0,
 				paused: counts.paused ?? 0
 			},
-			isPaused: paused
+			isPaused: paused,
+			latestResult
 		};
 	} catch (error) {
 		if (!isRecoverableQueueStatusError(error)) {
@@ -106,7 +144,8 @@ async function readQueueStatus(
 		return {
 			job,
 			counts: { ...EMPTY_COUNTS },
-			isPaused: false
+			isPaused: false,
+			latestResult: null
 		};
 	}
 }

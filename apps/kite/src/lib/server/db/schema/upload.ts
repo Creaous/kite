@@ -1,4 +1,5 @@
 import {
+	boolean,
 	uuid,
 	bigint,
 	index,
@@ -32,6 +33,7 @@ export const uploads = pgTable(
 		chunkSize: integer('chunk_size'),
 		uploadedBytes: bigint('uploaded_bytes', { mode: 'number' }).notNull().default(0),
 		status: uploadStatus('status').notNull().default('pending'),
+		highSensitivity: boolean('high_sensitivity').default(false).notNull(),
 		storageProvider: text('storage_provider'),
 		storagePath: text('storage_path'),
 		hash: text('hash'),
@@ -46,6 +48,7 @@ export const uploads = pgTable(
 	(table) => [
 		index('uploads_uploadedBy_idx').on(table.uploadedBy),
 		index('uploads_fingerprint_idx').on(table.fingerprint),
+		index('uploads_highSensitivity_idx').on(table.highSensitivity),
 		index('uploads_status_idx').on(table.status),
 		index('uploads_createdAt_idx').on(table.createdAt)
 	]

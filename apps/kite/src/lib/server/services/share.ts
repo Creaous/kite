@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { shares, shareUpload } from '../db/schema';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import argon2 from '@node-rs/argon2';
 import { uploads } from '../db/schema';
 import { generateDownloadToken } from './token';
@@ -14,6 +14,7 @@ export type CreateShareDTO = {
 	message?: string | null;
 	hideMessageBehindPassword?: boolean;
 	maxDownloads?: number | null;
+	highSensitivity?: boolean;
 	uploads: { uploadId: string; name?: string }[];
 	createdBy?: string | null;
 };
@@ -71,6 +72,7 @@ export async function createShare(dto: CreateShareDTO) {
 			title: dto.title ?? null,
 			passwordHash: _passwordHash,
 			passwordProtected,
+			highSensitivity: Boolean(dto.highSensitivity),
 			message: dto.message ?? null,
 			hideMessageBehindPassword: dto.hideMessageBehindPassword ?? false,
 			expiresAt,
@@ -129,6 +131,7 @@ async function getShareWithFiles(shareId: string) {
 			relativePath: uploads.relativePath,
 			size: uploads.size,
 			mimeType: uploads.mimeType,
+			highSensitivity: uploads.highSensitivity,
 			status: uploads.status,
 			createdAt: uploads.createdAt
 		})
@@ -142,15 +145,68 @@ async function getShareWithFiles(shareId: string) {
 	};
 }
 
+async function purgeHighSensitivityUploadsForShareIds(shareIds: string[], now: Date) {
+	if (shareIds.length === 0) {
+		return;
+	}
+
+	const rows = await db
+		.select({ id: uploads.id, storagePath: uploads.storagePath })
+		.from(shareUpload)
+		.innerJoin(uploads, eq(shareUpload.uploadId, uploads.id))
+		.where(
+			and(
+				inArray(shareUpload.shareId, shareIds),
+				eq(uploads.highSensitivity, true),
+				isNull(uploads.deletedAt)
+			)
+		);
+
+	for (const row of rows) {
+		await db.update(uploads).set({ deletedAt: now }).where(eq(uploads.id, row.id));
+
+		if (!row.storagePath) {
+			continue;
+		}
+
+		const [stillReferenced] = await db
+			.select({ id: uploads.id })
+			.from(uploads)
+			.where(
+				and(
+					ne(uploads.id, row.id),
+					eq(uploads.storagePath, row.storagePath),
+					isNull(uploads.deletedAt)
+				)
+			)
+			.limit(1);
+
+		if (stillReferenced) {
+			continue;
+		}
+
+		await fs.rm(row.storagePath, { force: true }).catch(() => undefined);
+	}
+}
+
 export async function softDeleteShare(shareId: string) {
+	const now = new Date();
+
 	const [updated] = await db
 		.update(shares)
-		.set({ deletedAt: new Date(), status: 'deleted' })
+		.set({ deletedAt: now, status: 'deleted' })
 		.where(eq(shares.id, shareId))
 		.returning();
 
 	if (!updated) throw new Error('Share not found');
+
+	await purgeHighSensitivityUploadsForShareIds([shareId], now);
+
 	return { shareId: updated.id, status: updated.status };
+}
+
+export async function purgeHighSensitivityUploadsForShares(shareIds: string[], now = new Date()) {
+	await purgeHighSensitivityUploadsForShareIds(shareIds, now);
 }
 
 export async function listShares() {
@@ -162,6 +218,7 @@ export async function listShares() {
 			message: shares.message,
 			hideMessageBehindPassword: shares.hideMessageBehindPassword,
 			passwordProtected: shares.passwordProtected,
+			highSensitivity: shares.highSensitivity,
 			expiresAt: shares.expiresAt,
 			maxDownloads: shares.maxDownloads,
 			downloadCount: shares.downloadCount,
@@ -291,6 +348,7 @@ export async function getPublicShareByCode(code: string, password?: string | nul
 				downloadCount: share.downloadCount,
 				viewCount: share.viewCount + 1,
 				requiresPassword: true,
+				highSensitivity: share.highSensitivity,
 				uploads: [] as {
 					id: string;
 					filename: string | null;
@@ -309,7 +367,8 @@ export async function getPublicShareByCode(code: string, password?: string | nul
 			id: uploads.id,
 			filename: uploads.filename,
 			relativePath: uploads.relativePath,
-			size: uploads.size
+			size: uploads.size,
+			highSensitivity: uploads.highSensitivity
 		})
 		.from(shareUpload)
 		.innerJoin(uploads, eq(shareUpload.uploadId, uploads.id))
@@ -326,11 +385,13 @@ export async function getPublicShareByCode(code: string, password?: string | nul
 		downloadCount: share.downloadCount,
 		viewCount: share.viewCount + 1,
 		requiresPassword: false,
+		highSensitivity: share.highSensitivity,
 		uploads: files.map((file) => ({
 			id: file.id,
 			filename: file.filename,
 			relativePath: file.relativePath,
-			size: Number(file.size ?? 0)
+			size: Number(file.size ?? 0),
+			highSensitivity: file.highSensitivity
 		}))
 	};
 }

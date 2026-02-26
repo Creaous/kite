@@ -83,6 +83,7 @@ describe('maintenance service (db)', () => {
 
 		const result = await expireSharesWithExpiryDate({ now });
 		expect(result.expiredShares).toBe(1);
+		expect(result.expiredHighSensitivityShares).toBe(0);
 
 		const [expiredShareRow] = await db
 			.select({ status: shares.status })
@@ -102,5 +103,48 @@ describe('maintenance service (db)', () => {
 			);
 
 		expect(activeShareRows).toHaveLength(2);
+	});
+
+	it('removes highSensitivity files when shares are marked expired', async () => {
+		const now = new Date();
+		const past = new Date(now.getTime() - 60_000);
+
+		const [highSensitivityUpload] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'maintenance-hs-expiry',
+				filename: 'hs-expiry.bin',
+				size: 12,
+				uploadedBytes: 12,
+				status: 'ready',
+				highSensitivity: true
+			})
+			.returning({ id: uploads.id });
+
+		const [pastShare] = await db
+			.insert(shares)
+			.values({
+				code: 'MAINT5',
+				title: 'Past high sensitivity',
+				status: 'active',
+				expiresAt: past,
+				highSensitivity: true
+			})
+			.returning({ id: shares.id });
+
+		await db
+			.insert(shareUpload)
+			.values({ shareId: pastShare.id, uploadId: highSensitivityUpload.id });
+
+		const result = await expireSharesWithExpiryDate({ now });
+		expect(result.expiredShares).toBe(1);
+		expect(result.expiredHighSensitivityShares).toBe(1);
+
+		const [uploadRow] = await db
+			.select({ deletedAt: uploads.deletedAt })
+			.from(uploads)
+			.where(eq(uploads.id, highSensitivityUpload.id));
+
+		expect(uploadRow.deletedAt).toBeTruthy();
 	});
 });

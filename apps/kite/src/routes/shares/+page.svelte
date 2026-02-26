@@ -14,6 +14,7 @@
 		hideMessageBehindPassword: boolean;
 		expiresAt: string | null;
 		passwordProtected: boolean;
+		highSensitivity: boolean;
 		maxDownloads: number;
 		downloadCount: number;
 		viewCount: number;
@@ -191,9 +192,18 @@
 				<div class="card-body gap-3">
 					<div class="flex items-start justify-between gap-2">
 						<h2 class="card-title text-base">{share.title || m.share_untitled()}</h2>
-						{#if share.passwordProtected}
-							<span class="badge badge-outline badge-warning">{m.share_protected_badge()}</span>
-						{/if}
+						<div>
+							{#if share.passwordProtected}
+								<span class="badge badge-outline badge-warning" title={m.share_password_protected_badge()}
+									><Icon icon="mdi:lock-outline" class="h-3 w-3" /></span
+								>
+							{/if}
+							{#if share.highSensitivity}
+								<span class="badge badge-outline badge-error" title={m.share_high_sensitivity_badge()}
+									><Icon icon="mdi:alert-circle-outline" class="h-3 w-3" /></span
+								>
+							{/if}
+						</div>
 					</div>
 
 					<div class="text-sm text-base-content/80">

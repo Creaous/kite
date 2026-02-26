@@ -11,6 +11,7 @@ It provides secure, link-based shares, share requests, admin controls, and an AP
 - Authentication: email/password, optional passkeys, and anonymous flows.
 - Admin UI: user management, branding, impersonation, and app settings.
 - REST API with OpenAPI generation for external integrations.
+- High sensitivity shares: Delete files within 60 seconds after deletion or expiry.
 
 ## Tech Stack
 
@@ -60,7 +61,6 @@ The site will be available at `http://localhost:5173` (or the port `vite` report
 
 - Migrations are managed with `drizzle-kit`. Migration files live in the `drizzle/` folder.
 - Common commands (see `package.json` scripts):
-
   - `pnpm run db:migrate` — run migrations
   - `pnpm run db:generate` — generate migration from schema
   - `pnpm run db:push` — push schema changes
@@ -71,22 +71,22 @@ The app runs `scripts/migrate.mjs` during container startup when applicable.
 
 - Development infra only (Postgres + Redis):
 
-   ```bash
-   docker compose up -d
-   ```
+  ```bash
+  docker compose up -d
+  ```
 
 - Production env setup:
 
-   ```bash
-   cp .env.prod.example .env
-   # edit .env and replace all CHANGE_ME_* values before first start
-   ```
+  ```bash
+  cp .env.prod.example .env
+  # edit .env and replace all CHANGE_ME_* values before first start
+  ```
 
 - Production stack (app + worker + db + redis):
 
-   ```bash
-   docker compose -f docker-compose.prod.yml up --build -d
-   ```
+  ```bash
+  docker compose -f docker-compose.prod.yml up --build -d
+  ```
 
 Notes:
 

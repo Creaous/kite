@@ -22,6 +22,7 @@ export const shares = pgTable(
 		title: text('title'),
 		passwordHash: text('password_hash'),
 		passwordProtected: boolean('password_protected').default(false).notNull(),
+		highSensitivity: boolean('high_sensitivity').default(false).notNull(),
 		message: text('message'),
 		hideMessageBehindPassword: boolean('hide_message_behind_password').default(false).notNull(),
 		expiresAt: timestamp('expires_at'),

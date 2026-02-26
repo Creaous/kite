@@ -110,12 +110,15 @@ async function processExpireExpiredShares() {
 				AND deleted_at IS NULL
 				AND expires_at IS NOT NULL
 				AND expires_at < $1
-			RETURNING id
+			RETURNING id, high_sensitivity
 		`,
 		[now]
 	);
 
-	return { expiredShares: rows.length };
+	return {
+		expiredShares: rows.length,
+		expiredHighSensitivityShares: rows.filter((row) => row.high_sensitivity).length
+	};
 }
 
 const expireUnusedUploadsQueue = new Queue(QUEUE_EXPIRE_UNUSED_UPLOADS, {

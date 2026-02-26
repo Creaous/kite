@@ -34,6 +34,12 @@
 			paused: number;
 		};
 		isPaused: boolean;
+		latestResult: {
+			expiredUploads?: number;
+			removedFromDisk?: number;
+			expiredShares?: number;
+			expiredHighSensitivityShares?: number;
+		} | null;
 	};
 
 	type SocialProviderId =
@@ -834,6 +840,12 @@
 								<div>{m.admin_maintenance_count_completed()}: {queue.counts.completed}</div>
 								<div>{m.admin_maintenance_count_failed()}: {queue.counts.failed}</div>
 								<div>{m.admin_maintenance_count_paused()}: {queue.counts.paused}</div>
+								{#if queue.job === 'expire-expired-shares'}
+									<div class="col-span-2">
+										High sensitivity shares expired: {queue.latestResult
+											?.expiredHighSensitivityShares ?? 0}
+									</div>
+								{/if}
 							</div>
 						</div>
 					{/each}
