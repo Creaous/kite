@@ -1,0 +1,14 @@
+{
+  "name": "@repo/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./base": "./base.json",
+    "./sveltekit": "./sveltekit.json",
+    "./sveltekit.json": "./sveltekit.json"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

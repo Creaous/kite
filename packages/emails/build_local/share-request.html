@@ -1,0 +1,134 @@
+<!--
+Simple share request email template with placeholders:
+{{recipientName}}, {{title}}, {{code}}, {{message}}, {{requestUrl}}, {{requesterName}}, {{requesterEmail}}, {{logoSrc}}
+-->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>File request</title>
+    <style>
+      body {
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial;
+        background: #f1f5f9;
+        margin: 0;
+        padding: 24px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 28px;
+        box-shadow: 0 8px 30px rgba(2, 6, 23, 0.08);
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo {
+        width: 56px;
+        height: auto;
+      }
+      h1 {
+        margin: 18px 0 6px 0;
+        font-size: 20px;
+        color: #0f172a;
+      }
+      p.lead {
+        margin: 0 0 18px 0;
+        color: #475569;
+      }
+      .card {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 14px;
+        margin: 10px 0;
+        color: #0f172a;
+      }
+      .btn {
+        display: inline-block;
+        background: #0ea5a4;
+        color: white;
+        text-decoration: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+      .muted {
+        color: #64748b;
+        font-size: 13px;
+      }
+      .footer {
+        margin-top: 22px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .divider {
+        height: 1px;
+        background: #e6edf3;
+        margin: 18px 0;
+        border-radius: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="{{logoSrc}}" alt="Kite" class="logo">
+        <div>
+          <div class="muted">Kite</div>
+          <div class="muted">File request</div>
+        </div>
+      </div>
+
+      <h1>{{title}}</h1>
+      <p class="lead">Hi {{recipientName}},</p>
+
+      <p class="muted">
+        You've received a file request. Use the button below to view and
+        respond.
+      </p>
+
+      <div class="card">
+        <strong>Request:</strong>
+        <div style="margin-top: 6px">
+          {{title}} <span class="muted">({{code}})</span>
+        </div>
+        {{#if message}}
+        <div style="margin-top: 10px">
+          <strong>Message</strong>
+          <div class="muted" style="margin-top: 6px">{{message}}</div>
+        </div>
+        {{/if}} {{#if requesterName}}
+        <div style="margin-top: 10px" class="muted">
+          Requested by: {{requesterName}}{{#if requesterEmail}}
+          &lt;{{requesterEmail}}&gt;{{/if}}
+        </div>
+        {{/if}}
+      </div>
+
+      <div style="text-align: left; margin-top: 14px">
+        <a class="btn" href="{{requestUrl}}">View request</a>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="footer">
+        <div>
+          If you weren't expecting this, you can safely ignore this email.
+        </div>
+        <div style="margin-top: 6px">&copy; {{year}} Kite</div>
+      </div>
+    </div>
+  </body>
+</html>

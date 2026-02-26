@@ -1,0 +1,18 @@
+{
+  "name": "emails",
+  "version": "0.0.1",
+  "description": "Transactional email templates for Kite powered by Maizzle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "maizzle serve",
+    "build": "maizzle build production",
+    "lint": "maizzle build",
+    "check": "maizzle build production"
+  },
+  "dependencies": {
+    "@maizzle/framework": "latest",
+    "tailwindcss-preset-email": "latest",
+    "tailwindcss": "^3.4.16"
+  }
+}
