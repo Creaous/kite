@@ -82,6 +82,31 @@ describe('GET/POST /api/v1/share-requests', () => {
 		expect(body.data.code).toBeDefined();
 	});
 
+	it('creates a share request with hidden requester email', async () => {
+		const userHasPermissionMock = vi.mocked(auth.api.userHasPermission);
+		userHasPermissionMock.mockResolvedValueOnce({
+			error: null,
+			success: true
+		} as Awaited<ReturnType<typeof auth.api.userHasPermission>>);
+
+		const res = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: '/api/v1/share-requests',
+				authenticated: true,
+				body: {
+					title: 'Hidden requester email',
+					requester: { name: 'Alex', email: 'alex@example.com' },
+					hideRequesterEmail: true
+				}
+			}) as never
+		);
+
+		expect(res.status).toBe(201);
+		const body = await res.json();
+		expect(body.data.hideRequesterEmail).toBe(true);
+	});
+
 	it('returns 400 when title is missing', async () => {
 		const userHasPermissionMock = vi.mocked(auth.api.userHasPermission);
 		userHasPermissionMock.mockResolvedValueOnce({

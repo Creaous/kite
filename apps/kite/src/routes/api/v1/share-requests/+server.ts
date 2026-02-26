@@ -68,6 +68,8 @@ export const GET: RequestHandler = async ({ locals }) => {
  *                     type: string
  *                   email:
  *                     type: string
+ *               hideRequesterEmail:
+ *                 type: boolean
  *               expiresAt:
  *                 type: string
  *                 format: date-time
@@ -127,6 +129,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 							email: typeof body.requester.email === 'string' ? body.requester.email : undefined
 						}
 					: null,
+			hideRequesterEmail: body?.hideRequesterEmail === true,
 			expiresAt: body?.expiresAt ? String(body.expiresAt) : null,
 			createdBy: typeof body?.createdBy === 'string' ? body.createdBy : null
 		});

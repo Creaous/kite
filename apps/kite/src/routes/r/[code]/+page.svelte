@@ -167,7 +167,7 @@
 					<p class="text-sm text-base-content/70">
 						{m.request_requested_by()}
 						{requestData.requesterName || m.common_unknown()}
-						{requestData.requesterEmail || ''}
+						{requestData.requesterEmail ? ` <${requestData.requesterEmail}>` : ''}
 					</p>
 				{/if}
 			</div>

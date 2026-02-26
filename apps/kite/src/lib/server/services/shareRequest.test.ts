@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { db } from '../db';
 import { uploads, user, shareRequests, shares } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import { createShareRequest, respondToRequest } from './shareRequest';
+import { createShareRequest, respondToRequest, updateShareRequest } from './shareRequest';
 
 describe('shareRequest service (db)', () => {
 	const createdUploads: string[] = [];
@@ -61,5 +61,23 @@ describe('shareRequest service (db)', () => {
 		// verify request status updated
 		const updated = await db.query.shareRequests.findFirst({ where: { id: req.id } });
 		expect(updated?.status).toBe('fulfilled');
+	});
+
+	it('updates requester fields and hideRequesterEmail flag', async () => {
+		const req = await createShareRequest({
+			title: 'Need invoices',
+			requester: { name: 'Initial', email: 'initial@example.com' },
+			hideRequesterEmail: false
+		});
+		createdRequests.push(req.id);
+
+		const updated = await updateShareRequest(req.id, {
+			requester: { name: 'Updated Name', email: 'updated@example.com' },
+			hideRequesterEmail: true
+		});
+
+		expect(updated.requesterName).toBe('Updated Name');
+		expect(updated.requesterEmail).toBe('updated@example.com');
+		expect(updated.hideRequesterEmail).toBe(true);
 	});
 });

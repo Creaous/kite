@@ -37,5 +37,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		);
 	}
 
-	return json({ data }, { status: 200 });
+	const publicData = {
+		...data,
+		requesterEmail: data.hideRequesterEmail ? null : data.requesterEmail
+	};
+
+	return json({ data: publicData }, { status: 200 });
 };

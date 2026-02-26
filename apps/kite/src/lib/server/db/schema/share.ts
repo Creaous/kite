@@ -56,6 +56,7 @@ export const shareRequests = pgTable(
 		message: text('message'),
 		requesterName: text('requester_name'),
 		requesterEmail: text('requester_email'),
+		hideRequesterEmail: boolean('hide_requester_email').default(false).notNull(),
 		expiresAt: timestamp('expires_at'),
 		status: requestStatus('status').default('open').notNull(),
 		createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
