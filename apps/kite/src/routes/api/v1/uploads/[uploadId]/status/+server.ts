@@ -27,10 +27,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			);
 		}
 
-		const data = await finalizeUpload(uploadId, action);
+		const data = await finalizeUpload(uploadId, action, {
+			userId: locals.user!.id,
+			isAdmin: locals.user?.role === 'admin'
+		});
 		return json({ data }, { status: 200 });
 	} catch (err) {
-		const status = includesInternalError(err, 'not found') ? 404 : 500;
+		const status = includesInternalError(err, 'not found')
+			? 404
+			: includesInternalError(err, 'forbidden')
+				? 403
+				: 500;
 		return json(
 			{ error: { code: 'UPLOAD_STATUS_FAILED', message: 'Failed to update upload status' } },
 			{ status }

@@ -6,9 +6,13 @@ import { deflateSync, inflateSync } from 'zlib';
 import { and, eq, gt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
-export const tokenSecret = new TextEncoder().encode(
-	String(process.env.TOKEN_SECRET ?? 'dev-secret')
-);
+const tokenSecretValue = process.env.TOKEN_SECRET;
+
+if (process.env.NODE_ENV === 'production' && !tokenSecretValue) {
+	throw new Error('TOKEN_SECRET must be configured in production');
+}
+
+export const tokenSecret = new TextEncoder().encode(String(tokenSecretValue ?? 'dev-secret'));
 
 export type DownloadToken = jose.JWTPayload & {
 	shareId?: string;

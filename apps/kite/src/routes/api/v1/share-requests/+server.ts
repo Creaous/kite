@@ -131,7 +131,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					: null,
 			hideRequesterEmail: body?.hideRequesterEmail === true,
 			expiresAt: body?.expiresAt ? String(body.expiresAt) : null,
-			createdBy: typeof body?.createdBy === 'string' ? body.createdBy : null
+			createdBy: null
 		});
 
 		return json({ data }, { status: 201 });

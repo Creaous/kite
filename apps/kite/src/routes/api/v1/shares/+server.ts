@@ -4,6 +4,8 @@ import { createShare, listShares } from '$lib/server/services/share';
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
 
+const MAX_UPLOADS_PER_SHARE = 200;
+
 /**
  * @openapi
  * /api/v1/shares:
@@ -108,6 +110,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			);
 		}
 
+		if (uploads.length > MAX_UPLOADS_PER_SHARE) {
+			return json(
+				{
+					error: {
+						code: 'INVALID_INPUT',
+						message: `uploads must contain at most ${MAX_UPLOADS_PER_SHARE} items`
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
 		const data = await createShare({
 			title: typeof body?.title === 'string' ? body.title : null,
 			expiresAt: body?.expiresAt ? String(body.expiresAt) : null,
@@ -117,12 +131,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			maxDownloads: typeof body?.maxDownloads === 'number' ? body.maxDownloads : 0,
 			highSensitivity: Boolean(body?.highSensitivity),
 			uploads,
-			createdBy: typeof body?.createdBy === 'string' ? body.createdBy : null
+			createdBy: null,
+			actorUserId: locals.user?.id ?? null,
+			actorIsAdmin: locals.user?.role === 'admin'
 		});
 
 		return json({ data }, { status: 201 });
 	} catch (err) {
-		const status = includesInternalError(err, 'invalid share payload') ? 400 : 500;
+		const status = includesInternalError(err, 'invalid share payload')
+			? 400
+			: includesInternalError(err, 'forbidden')
+				? 403
+				: 500;
 		return json(
 			{ error: { code: 'SHARE_CREATE_FAILED', message: 'Failed to create share' } },
 			{ status }

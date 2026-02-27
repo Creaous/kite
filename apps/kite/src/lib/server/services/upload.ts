@@ -133,18 +133,35 @@ export async function initiateUpload(dto: {
 	};
 }
 
+type UploadActor = {
+	userId: string;
+	isAdmin?: boolean;
+};
+
+function assertActorCanAccessUpload(upload: { uploadedBy: string | null }, actor?: UploadActor) {
+	if (!actor) {
+		return;
+	}
+
+	if (!upload.uploadedBy || upload.uploadedBy !== actor.userId) {
+		throw new Error('Forbidden upload access');
+	}
+}
+
 /**
  * Append a chunk by updating uploadedBytes. Storage handling is left to provider integration.
  */
-export async function appendChunk(uploadId: string, chunk: ArrayBuffer) {
+export async function appendChunk(uploadId: string, chunk: ArrayBuffer, actor?: UploadActor) {
 	const byteLength = chunk.byteLength;
 	const [existing] = await db
-		.select({ id: uploads.id, storagePath: uploads.storagePath })
+		.select({ id: uploads.id, storagePath: uploads.storagePath, uploadedBy: uploads.uploadedBy })
 		.from(uploads)
 		.where(eq(uploads.id, uploadId))
 		.limit(1);
 
 	if (!existing) throw new Error('Upload not found');
+
+	assertActorCanAccessUpload(existing, actor);
 
 	const storagePath = existing.storagePath ?? getLocalUploadPath(uploadId);
 	await fs.mkdir(getLocalUploadsDir(), { recursive: true });
@@ -173,16 +190,24 @@ export async function appendChunk(uploadId: string, chunk: ArrayBuffer) {
 /**
  * Finalize or cancel an upload. Finalize moves status to processing then ready.
  */
-export async function finalizeUpload(uploadId: string, action: 'finalize' | 'cancel') {
-	if (action === 'cancel') {
-		const [row] = await db
-			.select({ storagePath: uploads.storagePath })
-			.from(uploads)
-			.where(eq(uploads.id, uploadId))
-			.limit(1);
+export async function finalizeUpload(
+	uploadId: string,
+	action: 'finalize' | 'cancel',
+	actor?: UploadActor
+) {
+	const [existing] = await db
+		.select({ id: uploads.id, uploadedBy: uploads.uploadedBy, storagePath: uploads.storagePath })
+		.from(uploads)
+		.where(eq(uploads.id, uploadId))
+		.limit(1);
 
-		if (row?.storagePath) {
-			await fs.rm(row.storagePath, { force: true }).catch(() => undefined);
+	if (!existing) throw new Error('Upload not found');
+
+	assertActorCanAccessUpload(existing, actor);
+
+	if (action === 'cancel') {
+		if (existing.storagePath) {
+			await fs.rm(existing.storagePath, { force: true }).catch(() => undefined);
 		}
 
 		const [cancelled] = await db
@@ -194,7 +219,6 @@ export async function finalizeUpload(uploadId: string, action: 'finalize' | 'can
 		return { uploadId: cancelled.id, status: cancelled.status };
 	}
 
-	// Mark processing
 	const [processing] = await db
 		.update(uploads)
 		.set({ status: 'processing' })
@@ -202,8 +226,6 @@ export async function finalizeUpload(uploadId: string, action: 'finalize' | 'can
 		.returning();
 	if (!processing) throw new Error('Upload not found');
 
-	// In a real implementation we'd schedule background work (hashing, move to storage).
-	// For now mark ready immediately for simplicity.
 	const [ready] = await db
 		.update(uploads)
 		.set({ status: 'ready' })

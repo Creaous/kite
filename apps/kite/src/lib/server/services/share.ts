@@ -18,6 +18,8 @@ export type CreateShareDTO = {
 	highSensitivity?: boolean;
 	uploads: { uploadId: string; name?: string }[];
 	createdBy?: string | null;
+	actorUserId?: string | null;
+	actorIsAdmin?: boolean;
 };
 
 const DEFAULT_SHARE_EXPIRY_DAYS = 30;
@@ -97,11 +99,17 @@ export async function createShare(dto: CreateShareDTO) {
 		if (!u || !u.uploadId) continue;
 
 		const [found] = await db
-			.select({ id: uploads.id })
+			.select({ id: uploads.id, uploadedBy: uploads.uploadedBy })
 			.from(uploads)
 			.where(and(eq(uploads.id, u.uploadId), isNull(uploads.deletedAt)))
 			.limit(1);
 		if (!found) throw new Error(`Upload not found: ${u.uploadId}`);
+
+		if (dto.actorUserId && !dto.actorIsAdmin) {
+			if (found.uploadedBy && found.uploadedBy !== dto.actorUserId) {
+				throw new Error(`Forbidden upload access: ${u.uploadId}`);
+			}
+		}
 
 		await db.insert(shareUpload).values({ shareId: created.id, uploadId: u.uploadId });
 	}

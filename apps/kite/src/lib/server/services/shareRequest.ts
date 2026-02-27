@@ -53,7 +53,11 @@ export async function createShareRequest(dto: CreateShareRequestDTO) {
 	return created;
 }
 
-export async function respondToRequest(code: string, uploads: ShareRequestUpload[]) {
+export async function respondToRequest(
+	code: string,
+	uploads: ShareRequestUpload[],
+	actor?: { userId: string; isAdmin?: boolean }
+) {
 	if (!code) throw new Error('Missing request code');
 	if (!Array.isArray(uploads) || uploads.length === 0) throw new Error('No uploads provided');
 
@@ -72,7 +76,9 @@ export async function respondToRequest(code: string, uploads: ShareRequestUpload
 		title: req.title ?? 'Response',
 		expiresAt: req.expiresAt ?? null,
 		uploads: uploads,
-		createdBy: null
+		createdBy: null,
+		actorUserId: actor?.userId ?? null,
+		actorIsAdmin: actor?.isAdmin === true
 	};
 
 	const share = await createShare(shareDto);
