@@ -12,11 +12,19 @@
 		data: {
 			branding?: { appName?: string };
 			authSettings?: { anonymousTokensEnabled?: boolean };
+			alertSettings?: {
+				shareFlowAlert?: {
+					enabled?: boolean;
+					message?: string;
+					type?: 'info' | 'success' | 'warning' | 'error';
+				};
+			};
 		};
 		params: { code: string };
 	}>();
 
 	const allowAnonymousUsers = $derived(Boolean(data.authSettings?.anonymousTokensEnabled));
+	const shareFlowAlert = $derived(data.alertSettings?.shareFlowAlert ?? null);
 
 	type ShareRequest = {
 		id: string;
@@ -174,6 +182,12 @@
 		</section>
 
 		{#if requestData.status === 'open'}
+			{#if shareFlowAlert?.enabled && shareFlowAlert.message?.trim()}
+				<div role="alert" class={`alert alert-${shareFlowAlert.type ?? 'info'}`}>
+					<span>{shareFlowAlert.message}</span>
+				</div>
+			{/if}
+
 			{#if !hasSubmissionSession}
 				<div role="alert" class="alert alert-warning">
 					<span>{m.auth_sign_in_required_response()}</span>

@@ -58,6 +58,19 @@
 		availableSocialProviders: SocialProviderId[];
 	};
 
+	type AlertType = 'info' | 'success' | 'warning' | 'error';
+
+	type AdminAlertBannerSettings = {
+		enabled: boolean;
+		message: string;
+		type: AlertType;
+	};
+
+	type AdminAlertSettings = {
+		globalAnnouncement: AdminAlertBannerSettings;
+		shareFlowAlert: AdminAlertBannerSettings;
+	};
+
 	let users = $state<AdminUser[]>([]);
 	let loading = $state(true);
 	let updatingUserId = $state<string | null>(null);
@@ -85,6 +98,16 @@
 	let anonymousTokensEnabled = $state(false);
 	let enabledSocialProviders = $state<SocialProviderId[]>([]);
 	let availableSocialProviders = $state<SocialProviderId[]>([]);
+	let alertSettingsLoading = $state(true);
+	let savingAlertSettings = $state(false);
+	let globalAnnouncementEnabled = $state(false);
+	let globalAnnouncementMessage = $state('');
+	let globalAnnouncementType = $state<AlertType>('info');
+	let shareFlowAlertEnabled = $state(false);
+	let shareFlowAlertMessage = $state('');
+	let shareFlowAlertType = $state<AlertType>('info');
+
+	const ALERT_TYPES: AlertType[] = ['info', 'success', 'warning', 'error'];
 
 	function providerLabel(provider: SocialProviderId) {
 		switch (provider) {
@@ -109,6 +132,14 @@
 		if (!Array.isArray(value)) return [];
 
 		return value.filter((provider): provider is SocialProviderId => typeof provider === 'string');
+	}
+
+	function parseAlertType(value: unknown): AlertType {
+		if (value === 'success' || value === 'warning' || value === 'error') {
+			return value;
+		}
+
+		return 'info';
 	}
 
 	async function loadUsers() {
@@ -271,6 +302,70 @@
 		}
 	}
 
+	async function loadAlertSettings() {
+		alertSettingsLoading = true;
+
+		try {
+			const response = await fetch('/api/v1/admin/alert-settings');
+			const body = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				errorMessage = m.admin_failed_load_alert_settings();
+				return;
+			}
+
+			const settings = (body.data ?? {}) as Partial<AdminAlertSettings>;
+			globalAnnouncementEnabled = Boolean(settings.globalAnnouncement?.enabled);
+			globalAnnouncementMessage = settings.globalAnnouncement?.message ?? '';
+			globalAnnouncementType = parseAlertType(settings.globalAnnouncement?.type);
+			shareFlowAlertEnabled = Boolean(settings.shareFlowAlert?.enabled);
+			shareFlowAlertMessage = settings.shareFlowAlert?.message ?? '';
+			shareFlowAlertType = parseAlertType(settings.shareFlowAlert?.type);
+		} catch {
+			errorMessage = m.admin_failed_load_alert_settings();
+		} finally {
+			alertSettingsLoading = false;
+		}
+	}
+
+	async function saveAlertSettings() {
+		errorMessage = '';
+		successMessage = '';
+		savingAlertSettings = true;
+
+		try {
+			const response = await fetch('/api/v1/admin/alert-settings', {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					globalAnnouncement: {
+						enabled: globalAnnouncementEnabled,
+						message: globalAnnouncementMessage,
+						type: globalAnnouncementType
+					},
+					shareFlowAlert: {
+						enabled: shareFlowAlertEnabled,
+						message: shareFlowAlertMessage,
+						type: shareFlowAlertType
+					}
+				})
+			});
+
+			await response.json().catch(() => ({}));
+			if (!response.ok) {
+				errorMessage = m.admin_failed_save_alert_settings();
+				return;
+			}
+
+			successMessage = m.admin_alert_settings_saved();
+			await loadAlertSettings();
+		} catch {
+			errorMessage = m.admin_failed_save_alert_settings();
+		} finally {
+			savingAlertSettings = false;
+		}
+	}
+
 	async function impersonateUser(user: AdminUser) {
 		actingUserId = user.id;
 		errorMessage = '';
@@ -420,6 +515,7 @@
 		void loadUsers();
 		void loadBranding();
 		void loadAuthSettings();
+		void loadAlertSettings();
 		void loadMaintenanceStatus();
 	});
 </script>
@@ -445,7 +541,7 @@
 	<section class="card mb-6 border border-base-300 bg-base-100 shadow-sm">
 		<div class="card-body gap-3">
 			<div class="flex flex-wrap items-center justify-between gap-2">
-				<h2 class="card-title">Updates</h2>
+				<h2 class="card-title">{m.admin_updates_title()}</h2>
 				<button
 					class="btn btn-ghost btn-sm"
 					type="button"
@@ -454,15 +550,17 @@
 					}}
 				>
 					<Icon icon="mdi:source-repository" class="h-4 w-4" />
-					Repository
+					{m.admin_updates_repository()}
 				</button>
 			</div>
 
 			{#if data.updateStatus.hasUpdate}
 				<div role="alert" class="alert alert-warning">
 					<span>
-						Update available: {data.updateStatus.latestVersion ?? 'unknown'} (current {data
-							.updateStatus.currentVersion}).
+						{m.admin_updates_available({
+							latestVersion: data.updateStatus.latestVersion ?? m.common_unknown(),
+							currentVersion: data.updateStatus.currentVersion
+						})}
 					</span>
 				</div>
 				{#if data.updateStatus.latestReleaseUrl}
@@ -480,24 +578,29 @@
 							}}
 						>
 							<Icon icon="mdi:open-in-new" class="h-4 w-4" />
-							Open latest release
+							{m.admin_updates_open_latest_release()}
 						</button>
 					</div>
 				{/if}
 			{:else if data.updateStatus.error}
 				<div role="alert" class="alert alert-info">
 					<span>
-						Unable to check releases right now (current {data.updateStatus.currentVersion}).
+						{m.admin_updates_check_failed({ currentVersion: data.updateStatus.currentVersion })}
 					</span>
 				</div>
 			{:else}
 				<div role="alert" class="alert alert-success">
-					<span>Kite is up to date ({data.updateStatus.currentVersion}).</span>
+					<span>
+						{m.admin_updates_up_to_date({
+							appName: data.branding?.appName || m.app_name(),
+							currentVersion: data.updateStatus.currentVersion
+						})}
+					</span>
 				</div>
 			{/if}
 
 			<p class="text-xs text-base-content/60">
-				Last checked: {formatDate(data.updateStatus.checkedAt)}
+				{m.admin_updates_last_checked({ time: formatDate(data.updateStatus.checkedAt) })}
 			</p>
 		</div>
 	</section>
@@ -746,6 +849,104 @@
 <section class="card mt-6 border border-base-300 bg-base-100 shadow-sm">
 	<div class="card-body gap-4">
 		<div>
+			<h2 class="card-title">{m.admin_alert_settings_title()}</h2>
+			<p class="text-sm text-base-content/70">{m.admin_alert_settings_subtitle()}</p>
+		</div>
+
+		{#if alertSettingsLoading}
+			<div class="flex items-center gap-2">
+				<span class="loading loading-md loading-spinner"></span>
+				<span>{m.admin_alert_settings_loading()}</span>
+			</div>
+		{:else}
+			<div class="grid gap-6">
+				<div class="rounded-box border border-base-300 p-4">
+					<h3 class="mb-3 font-semibold">{m.admin_alert_global_announcement_title()}</h3>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<fieldset class="fieldset sm:col-span-2">
+							<label class="label cursor-pointer justify-start gap-3">
+								<input
+									type="checkbox"
+									class="toggle toggle-sm"
+									bind:checked={globalAnnouncementEnabled}
+								/>
+								<span class="label-text">{m.admin_alert_enabled()}</span>
+							</label>
+						</fieldset>
+
+						<fieldset class="fieldset">
+							<legend class="fieldset-legend">{m.admin_alert_color()}</legend>
+							<select class="select-bordered select w-full" bind:value={globalAnnouncementType}>
+								{#each ALERT_TYPES as type (type)}
+									<option value={type}>{type}</option>
+								{/each}
+							</select>
+						</fieldset>
+
+						<fieldset class="fieldset sm:col-span-2">
+							<legend class="fieldset-legend">{m.common_message()}</legend>
+							<textarea
+								class="textarea-bordered textarea w-full"
+								bind:value={globalAnnouncementMessage}
+								placeholder={m.admin_alert_placeholder_global()}
+							></textarea>
+						</fieldset>
+					</div>
+				</div>
+
+				<div class="rounded-box border border-base-300 p-4">
+					<h3 class="mb-3 font-semibold">{m.admin_alert_share_flow_title()}</h3>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<fieldset class="fieldset sm:col-span-2">
+							<label class="label cursor-pointer justify-start gap-3">
+								<input
+									type="checkbox"
+									class="toggle toggle-sm"
+									bind:checked={shareFlowAlertEnabled}
+								/>
+								<span class="label-text">{m.admin_alert_enabled()}</span>
+							</label>
+						</fieldset>
+
+						<fieldset class="fieldset">
+							<legend class="fieldset-legend">{m.admin_alert_color()}</legend>
+							<select class="select-bordered select w-full" bind:value={shareFlowAlertType}>
+								{#each ALERT_TYPES as type (type)}
+									<option value={type}>{type}</option>
+								{/each}
+							</select>
+						</fieldset>
+
+						<fieldset class="fieldset sm:col-span-2">
+							<legend class="fieldset-legend">{m.common_message()}</legend>
+							<textarea
+								class="textarea-bordered textarea w-full"
+								bind:value={shareFlowAlertMessage}
+								placeholder={m.admin_alert_placeholder_share_flow()}
+							></textarea>
+						</fieldset>
+					</div>
+				</div>
+			</div>
+
+			<div class="card-actions justify-end">
+				<button
+					class="btn btn-primary"
+					type="button"
+					onclick={saveAlertSettings}
+					disabled={savingAlertSettings}
+				>
+					<Icon icon="mdi:content-save-outline" class="h-4 w-4" />
+					{savingAlertSettings ? m.admin_branding_saving() : m.admin_alert_settings_save()}
+				</button>
+			</div>
+		{/if}
+	</div>
+</section>
+
+<section class="card mt-6 border border-base-300 bg-base-100 shadow-sm">
+	<div class="card-body gap-4">
+		<div>
 			<h2 class="card-title">{m.admin_maintenance_title()}</h2>
 			<p class="text-sm text-base-content/70">{m.admin_maintenance_subtitle()}</p>
 		</div>
@@ -842,8 +1043,9 @@
 								<div>{m.admin_maintenance_count_paused()}: {queue.counts.paused}</div>
 								{#if queue.job === 'expire-expired-shares'}
 									<div class="col-span-2">
-										High sensitivity shares expired: {queue.latestResult
-											?.expiredHighSensitivityShares ?? 0}
+										{m.admin_maintenance_high_sensitivity_expired({
+											count: queue.latestResult?.expiredHighSensitivityShares ?? 0
+										})}
 									</div>
 								{/if}
 							</div>
