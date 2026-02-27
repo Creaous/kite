@@ -6,7 +6,11 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,html}\"",
-    "check": "turbo run check"
+    "check": "turbo run check",
+    "version:app": "node -p \"require('./apps/kite/package.json').version\"",
+    "version:app:patch": "npm --prefix apps/kite version patch --no-git-tag-version",
+    "version:app:minor": "npm --prefix apps/kite version minor --no-git-tag-version",
+    "version:app:major": "npm --prefix apps/kite version major --no-git-tag-version"
   },
   "devDependencies": {
     "prettier": "^3.8.1",

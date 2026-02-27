@@ -69,20 +69,27 @@ jobs:
             exit 1
           fi
 
-      - name: Verify tag version matches package.json
+      - name: Verify tag version matches apps/kite package version
         shell: sh
         run: |
           set -eu
           tag_version="${GITHUB_REF_NAME#v}"
-          package_version="$(jq -r '.version // empty' package.json)"
+          app_package_path="apps/kite/package.json"
+
+          if [ ! -f "$app_package_path" ]; then
+            echo "Missing ${app_package_path}" >&2
+            exit 1
+          fi
+
+          package_version="$(jq -r '.version // empty' "$app_package_path")"
 
           if [ -z "$package_version" ]; then
-            echo "package.json is missing a version field" >&2
+            echo "${app_package_path} is missing a version field" >&2
             exit 1
           fi
 
           if [ "$tag_version" != "$package_version" ]; then
-            echo "Tag version (${tag_version}) does not match package.json version (${package_version})" >&2
+            echo "Tag version (${tag_version}) does not match ${app_package_path} version (${package_version})" >&2
             exit 1
           fi
 
