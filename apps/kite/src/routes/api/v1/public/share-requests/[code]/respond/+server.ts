@@ -4,6 +4,8 @@ import { respondToRequest } from '$lib/server/services/shareRequest';
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser, unauthorizedResponse } from '$lib/server/http-auth';
 
+const MAX_UPLOADS_PER_RESPONSE = 200;
+
 /**
  * @openapi
  * /api/v1/public/share-requests/{code}/respond:
@@ -70,7 +72,22 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			);
 		}
 
-		const data = await respondToRequest(code, uploads);
+		if (uploads.length > MAX_UPLOADS_PER_RESPONSE) {
+			return json(
+				{
+					error: {
+						code: 'INVALID_INPUT',
+						message: `uploads must contain at most ${MAX_UPLOADS_PER_RESPONSE} items`
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
+		const data = await respondToRequest(code, uploads, {
+			userId: locals.user!.id,
+			isAdmin: locals.user?.role === 'admin'
+		});
 		return json({ data }, { status: 200 });
 	} catch (err) {
 		const status =
@@ -78,7 +95,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				? 404
 				: includesInternalError(err, 'no uploads provided')
 					? 400
-					: 500;
+					: includesInternalError(err, 'forbidden')
+						? 403
+						: 500;
 		return json(
 			{
 				error: {

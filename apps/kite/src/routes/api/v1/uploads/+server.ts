@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			fingerprint,
 			highSensitivity,
 			chunkSize: body?.chunkSize ? Number(body.chunkSize) : undefined,
-			uploadedBy: typeof body?.uploadedBy === 'string' ? body.uploadedBy : null,
+			uploadedBy: locals.user?.id ?? null,
 			shareId: typeof body?.shareId === 'string' ? body.shareId : null,
 			shareRequestId: typeof body?.shareRequestId === 'string' ? body.shareRequestId : null
 		});

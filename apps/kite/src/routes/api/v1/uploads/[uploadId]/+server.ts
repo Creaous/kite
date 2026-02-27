@@ -122,10 +122,17 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	try {
 		const chunk = await request.arrayBuffer();
-		const data = await appendChunk(uploadId, chunk);
+		const data = await appendChunk(uploadId, chunk, {
+			userId: locals.user!.id,
+			isAdmin: locals.user?.role === 'admin'
+		});
 		return json({ data }, { status: 200 });
 	} catch (err) {
-		const status = includesInternalError(err, 'not found') ? 404 : 500;
+		const status = includesInternalError(err, 'not found')
+			? 404
+			: includesInternalError(err, 'forbidden')
+				? 403
+				: 500;
 		return json(
 			{ error: { code: 'UPLOAD_CHUNK_FAILED', message: 'Failed to append upload chunk' } },
 			{ status }
