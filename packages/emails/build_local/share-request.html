@@ -84,9 +84,9 @@ Simple share request email template with placeholders:
   <body>
     <div class="container">
       <div class="header">
-        <img src="{{logoSrc}}" alt="Kite" class="logo">
+        <img src="{{logoSrc}}" alt="{{brandingName}}" class="logo">
         <div>
-          <div class="muted">Kite</div>
+          <div class="muted">{{brandingName}}</div>
           <div class="muted">File request</div>
         </div>
       </div>
@@ -127,7 +127,7 @@ Simple share request email template with placeholders:
         <div>
           If you weren't expecting this, you can safely ignore this email.
         </div>
-        <div style="margin-top: 6px">&copy; {{year}} Kite</div>
+        <div style="margin-top: 6px">&copy; {{year}} {{brandingName}}</div>
       </div>
     </div>
   </body>

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { isEmailConfiguredMock, sendEmailMock, resetEmailTransportForTestsMock } = vi.hoisted(() => {
 	const isEmailConfiguredMock = vi.fn();
@@ -7,10 +7,19 @@ const { isEmailConfiguredMock, sendEmailMock, resetEmailTransportForTestsMock } 
 	return { isEmailConfiguredMock, sendEmailMock, resetEmailTransportForTestsMock };
 });
 
+const { getBrandingSettingsMock } = vi.hoisted(() => {
+	const getBrandingSettingsMock = vi.fn();
+	return { getBrandingSettingsMock };
+});
+
 vi.mock('./email', () => ({
 	isEmailConfigured: isEmailConfiguredMock,
 	sendEmail: sendEmailMock,
 	resetEmailTransportForTests: resetEmailTransportForTestsMock
+}));
+
+vi.mock('./settings', () => ({
+	getBrandingSettings: getBrandingSettingsMock
 }));
 
 import {
@@ -20,6 +29,16 @@ import {
 } from './shareRequestEmail';
 
 describe('shareRequestEmail service', () => {
+	beforeEach(() => {
+		getBrandingSettingsMock.mockResolvedValue({
+			appName: 'Kite',
+			tagline: '',
+			logoUrl: '',
+			faviconUrl: '',
+			disableIndexing: true
+		});
+	});
+
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -63,7 +82,15 @@ describe('shareRequestEmail service', () => {
 			subject: 'File request: Upload tax docs'
 		});
 		expect(sendEmailMock.mock.calls[0][0].text).toContain('Hi Alice,');
+		expect(sendEmailMock.mock.calls[0][0].text).toContain('File request details:');
+		expect(sendEmailMock.mock.calls[0][0].text).toContain('- Code: ABC123');
+		expect(sendEmailMock.mock.calls[0][0].text).toContain('View request: https://kite.example.com/r/ABC123');
+		expect(sendEmailMock.mock.calls[0][0].text).toContain(
+			"If you weren't expecting this, you can safely ignore this email."
+		);
 		expect(sendEmailMock.mock.calls[0][0].html).toContain('Hi Alice');
+		expect(sendEmailMock.mock.calls[0][0].html).toContain('Kite');
+		expect(sendEmailMock.mock.calls[0][0].html).toContain('https://kite.example.com/images/logo.png');
 		expect(sendEmailMock.mock.calls[1][0]).toMatchObject({
 			to: { email: 'to2@example.com', name: undefined },
 			subject: 'File request: Upload tax docs'
@@ -96,6 +123,32 @@ describe('shareRequestEmail service', () => {
 				subject: 'File request: ABC123'
 			})
 		);
+	});
+
+	it('uses configured branding logo URL and app name in HTML', async () => {
+		getBrandingSettingsMock.mockResolvedValueOnce({
+			appName: 'Acme Files',
+			tagline: 'Secure transfers',
+			logoUrl: '/branding/logo.svg',
+			faviconUrl: '',
+			disableIndexing: true
+		});
+		sendEmailMock.mockResolvedValueOnce({ accepted: ['to@example.com'], rejected: [] });
+
+		await sendShareRequestEmail({
+			recipients: [{ email: 'to@example.com' }],
+			requestUrl: 'https://kite.example.com/r/ABC123',
+			shareRequest: {
+				code: 'ABC123',
+				title: 'Upload docs',
+				message: null,
+				requesterName: null,
+				requesterEmail: null
+			}
+		});
+
+		expect(sendEmailMock.mock.calls[0][0].html).toContain('Acme Files');
+		expect(sendEmailMock.mock.calls[0][0].html).toContain('https://kite.example.com/branding/logo.svg');
 	});
 
 	it('throws when recipients are empty', async () => {

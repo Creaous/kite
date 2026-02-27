@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { isEmailConfigured, resetEmailTransportForTests, sendEmail } from './email';
+import { getBrandingSettings } from './settings';
 
 type ShareRequestRecipient = {
 	name?: string | null;
@@ -25,6 +26,11 @@ type ShareRequestEmailResult = {
 	rejected: string[];
 };
 
+type EmailBranding = {
+	name: string;
+	logoSrc: string;
+};
+
 let shareRequestTemplateHtml: string | null = null;
 
 function toSubject(title: string | null, code: string) {
@@ -34,27 +40,41 @@ function toSubject(title: string | null, code: string) {
 	return `File request: ${code}`;
 }
 
-function toTextBody(payload: ShareRequestEmailPayload, recipient?: ShareRequestRecipient) {
+function toTextBody(
+	payload: ShareRequestEmailPayload,
+	branding: EmailBranding,
+	recipient?: ShareRequestRecipient
+) {
 	const recipientName = recipient?.name?.trim();
+	const title = payload.shareRequest.title ?? payload.shareRequest.code;
 	const lines = [
 		recipientName ? `Hi ${recipientName},` : 'Hello,',
 		'',
-		"You've received a file request.",
+		"You've received a file request. Use the link below to view and respond.",
 		'',
-		`Request: ${payload.shareRequest.title ?? payload.shareRequest.code}`,
-		`Link: ${payload.requestUrl}`
+		'File request details:',
+		`- Request: ${title}`,
+		`- Code: ${payload.shareRequest.code}`
 	];
 
 	if (payload.shareRequest.message?.trim()) {
-		lines.push('', 'Message:', payload.shareRequest.message.trim());
+		lines.push('- Message:', `  ${payload.shareRequest.message.trim()}`);
 	}
 
 	if (payload.shareRequest.requesterName?.trim() || payload.shareRequest.requesterEmail?.trim()) {
 		lines.push(
-			'',
-			`Requested by: ${payload.shareRequest.requesterName?.trim() ?? 'Unknown'}${payload.shareRequest.requesterEmail?.trim() ? ` <${payload.shareRequest.requesterEmail.trim()}>` : ''}`
+			`- Requested by: ${payload.shareRequest.requesterName?.trim() ?? 'Unknown'}${payload.shareRequest.requesterEmail?.trim() ? ` <${payload.shareRequest.requesterEmail.trim()}>` : ''}`
 		);
 	}
+
+	lines.push(
+		'',
+		`View request: ${payload.requestUrl}`,
+		'',
+		"If you weren't expecting this, you can safely ignore this email.",
+		'',
+		`© ${new Date().getFullYear()} ${branding.name}`
+	);
 
 	return lines.join('\n');
 }
@@ -160,20 +180,36 @@ async function getShareRequestTemplateHtml() {
 	return shareRequestTemplateHtml;
 }
 
-async function toHtmlBody(payload: ShareRequestEmailPayload, recipient?: ShareRequestRecipient) {
+async function resolveEmailBranding(requestUrl: string): Promise<EmailBranding> {
+	const branding = await getBrandingSettings();
+	const brandingName = branding.appName?.trim() || 'Kite';
+	const configuredLogoUrl = branding.logoUrl?.trim();
+
+	let logoSrc;
+
+	try {
+		logoSrc = new URL(configuredLogoUrl || '/images/logo.png', requestUrl).toString();
+	} catch {
+		logoSrc = '';
+	}
+
+	return {
+		name: brandingName,
+		logoSrc
+	};
+}
+
+async function toHtmlBody(
+	payload: ShareRequestEmailPayload,
+	branding: EmailBranding,
+	recipient?: ShareRequestRecipient
+) {
 	const title = payload.shareRequest.title ?? payload.shareRequest.code;
 	const message = payload.shareRequest.message?.trim() || null;
 	const requesterName = payload.shareRequest.requesterName?.trim() || null;
 	const requesterEmail = payload.shareRequest.requesterEmail?.trim() || null;
 	const recipientName = recipient?.name?.trim() || 'there';
 	const year = String(new Date().getFullYear());
-
-	let logoSrc = '';
-	try {
-		logoSrc = new URL('/images/logo.png', payload.requestUrl).toString();
-	} catch {
-		logoSrc = '';
-	}
 
 	const template = await getShareRequestTemplateHtml();
 	const withConditionals = renderTemplateConditionals(template, {
@@ -183,6 +219,7 @@ async function toHtmlBody(payload: ShareRequestEmailPayload, recipient?: ShareRe
 	});
 
 	return renderTemplateVariables(withConditionals, {
+		brandingName: branding.name,
 		recipientName,
 		title,
 		code: payload.shareRequest.code,
@@ -191,7 +228,7 @@ async function toHtmlBody(payload: ShareRequestEmailPayload, recipient?: ShareRe
 		requesterName,
 		requesterEmail,
 		year,
-		logoSrc
+		logoSrc: branding.logoSrc
 	});
 }
 
@@ -208,12 +245,13 @@ export async function sendShareRequestEmail(
 
 	const accepted: string[] = [];
 	const rejected: string[] = [];
+	const branding = await resolveEmailBranding(payload.requestUrl);
 
 	for (const recipient of payload.recipients) {
 		const email = recipient.email.trim().toLowerCase();
 
 		try {
-			const html = await toHtmlBody(payload, recipient);
+			const html = await toHtmlBody(payload, branding, recipient);
 
 			const result = await sendEmail({
 				to: {
@@ -221,7 +259,7 @@ export async function sendShareRequestEmail(
 					name: recipient.name?.trim() || undefined
 				},
 				subject: toSubject(payload.shareRequest.title, payload.shareRequest.code),
-				text: toTextBody(payload, recipient),
+				text: toTextBody(payload, branding, recipient),
 				html
 			});
 

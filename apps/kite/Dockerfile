@@ -24,6 +24,7 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV EMAIL_TEMPLATES_DIR=/app/emails
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_FUND=false
 
@@ -37,6 +38,8 @@ COPY --from=build --chown=app:app /workspace/apps/kite/package.json ./package.js
 COPY --from=build --chown=app:app /workspace/apps/kite/scripts ./scripts
 COPY --from=build --chown=app:app /workspace/apps/kite/drizzle ./drizzle
 COPY --from=build --chown=app:app /workspace/packages/emails/build_production ./emails
+
+RUN test -f /app/emails/share-request.html
 
 RUN mkdir -p /app/uploads /tmp && chown -R app:app /app/uploads /tmp
 
