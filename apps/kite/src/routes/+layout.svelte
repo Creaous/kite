@@ -25,6 +25,13 @@
 		data.branding?.disableIndexing ? 'noindex, nofollow' : 'index, follow'
 	);
 
+	const globalAnnouncement = $derived(data.alertSettings?.globalAnnouncement ?? null);
+	const globalAnnouncementClass = $derived(
+		globalAnnouncement
+			? `alert rounded-none alert-${globalAnnouncement.type}`
+			: 'alert rounded-none'
+	);
+
 	type NavItem = {
 		href: '/' | '/shares' | '/share-requests' | '/admin';
 		label: () => string;
@@ -82,10 +89,12 @@
 <div class="min-h-screen bg-base-200">
 	{#if data.isDevelopment}
 		<div role="alert" class="alert rounded-none alert-warning">
-			<span
-				>This is a development instance, please do not upload any files here that you wish to keep
-				available.</span
-			>
+			<span>{m.layout_development_warning()}</span>
+		</div>
+	{/if}
+	{#if globalAnnouncement?.enabled && globalAnnouncement.message.trim()}
+		<div role="alert" class={globalAnnouncementClass}>
+			<span>{globalAnnouncement.message}</span>
 		</div>
 	{/if}
 	<header class="navbar border-b border-base-300 bg-base-100 px-4 shadow-sm">

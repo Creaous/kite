@@ -5,6 +5,20 @@ import { eq } from 'drizzle-orm';
 
 const BRANDING_KEY = 'branding';
 const AUTH_SETTINGS_KEY = 'auth';
+const ALERT_SETTINGS_KEY = 'alerts';
+
+export type AlertType = 'info' | 'success' | 'warning' | 'error';
+
+export type AlertBanner = {
+	enabled: boolean;
+	message: string;
+	type: AlertType;
+};
+
+export type AlertSettings = {
+	globalAnnouncement: AlertBanner;
+	shareFlowAlert: AlertBanner;
+};
 
 export type BrandingSettings = {
 	appName: string;
@@ -33,6 +47,48 @@ const defaultBranding: BrandingSettings = {
 	faviconUrl: '',
 	disableIndexing: true
 };
+
+const defaultAlertBanner: AlertBanner = {
+	enabled: false,
+	message: '',
+	type: 'info'
+};
+
+const defaultAlertSettings: AlertSettings = {
+	globalAnnouncement: { ...defaultAlertBanner },
+	shareFlowAlert: { ...defaultAlertBanner }
+};
+
+function isAlertType(value: unknown): value is AlertType {
+	return value === 'info' || value === 'success' || value === 'warning' || value === 'error';
+}
+
+function toAlertBanner(value: unknown): AlertBanner {
+	if (!value || typeof value !== 'object') {
+		return { ...defaultAlertBanner };
+	}
+
+	const parsed = value as Partial<AlertBanner>;
+
+	return {
+		enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : defaultAlertBanner.enabled,
+		message: typeof parsed.message === 'string' ? parsed.message : defaultAlertBanner.message,
+		type: isAlertType(parsed.type) ? parsed.type : defaultAlertBanner.type
+	};
+}
+
+function toAlertSettings(value: unknown): AlertSettings {
+	if (!value || typeof value !== 'object') {
+		return defaultAlertSettings;
+	}
+
+	const parsed = value as Partial<AlertSettings>;
+
+	return {
+		globalAnnouncement: toAlertBanner(parsed.globalAnnouncement),
+		shareFlowAlert: toAlertBanner(parsed.shareFlowAlert)
+	};
+}
 
 function normalizeAuthSettingsDefaults(
 	defaults: Partial<AuthSettingsDefaults>
@@ -212,6 +268,76 @@ export async function saveAuthSettings(
 		await db.update(settings).set({ value: serialized }).where(eq(settings.key, AUTH_SETTINGS_KEY));
 	} else {
 		await db.insert(settings).values({ key: AUTH_SETTINGS_KEY, value: serialized });
+	}
+
+	return next;
+}
+
+export async function getAlertSettings() {
+	const [row] = await db
+		.select()
+		.from(settings)
+		.where(eq(settings.key, ALERT_SETTINGS_KEY))
+		.limit(1);
+
+	if (!row) {
+		return defaultAlertSettings;
+	}
+
+	try {
+		return toAlertSettings(JSON.parse(row.value));
+	} catch {
+		return defaultAlertSettings;
+	}
+}
+
+export async function saveAlertSettings(input: Partial<AlertSettings>) {
+	const current = await getAlertSettings();
+
+	const next: AlertSettings = {
+		globalAnnouncement: {
+			enabled:
+				typeof input.globalAnnouncement?.enabled === 'boolean'
+					? input.globalAnnouncement.enabled
+					: current.globalAnnouncement.enabled,
+			message:
+				typeof input.globalAnnouncement?.message === 'string'
+					? input.globalAnnouncement.message.trim()
+					: current.globalAnnouncement.message,
+			type: isAlertType(input.globalAnnouncement?.type)
+				? input.globalAnnouncement.type
+				: current.globalAnnouncement.type
+		},
+		shareFlowAlert: {
+			enabled:
+				typeof input.shareFlowAlert?.enabled === 'boolean'
+					? input.shareFlowAlert.enabled
+					: current.shareFlowAlert.enabled,
+			message:
+				typeof input.shareFlowAlert?.message === 'string'
+					? input.shareFlowAlert.message.trim()
+					: current.shareFlowAlert.message,
+			type: isAlertType(input.shareFlowAlert?.type)
+				? input.shareFlowAlert.type
+				: current.shareFlowAlert.type
+		}
+	};
+
+	const serialized = JSON.stringify(next);
+
+	const [existing] = await db
+		.select({ key: settings.key })
+		.from(settings)
+		.where(eq(settings.key, ALERT_SETTINGS_KEY))
+		.limit(1);
+
+	if (existing) {
+		await db
+			.update(settings)
+			.set({ value: serialized })
+			.where(eq(settings.key, ALERT_SETTINGS_KEY));
+	} else {
+		await db.insert(settings).values({ key: ALERT_SETTINGS_KEY, value: serialized });
 	}
 
 	return next;

@@ -21,6 +21,7 @@
 	let successMessage = $state('');
 	let createdCode = $state('');
 	let generatedPassword = $state('');
+	const shareFlowAlert = $derived(data.alertSettings?.shareFlowAlert ?? null);
 
 	function defaultExpiryLocalDateTime() {
 		const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -106,6 +107,12 @@
 				<p class="text-sm text-base-content/70">{m.share_create_subtitle()}</p>
 			</div>
 
+			{#if shareFlowAlert?.enabled && shareFlowAlert.message.trim()}
+				<div role="alert" class={`alert alert-${shareFlowAlert.type}`}>
+					<span>{shareFlowAlert.message}</span>
+				</div>
+			{/if}
+
 			<div class="grid gap-4 sm:grid-cols-2">
 				<fieldset class="fieldset sm:col-span-2">
 					<legend class="fieldset-legend">{m.form_title()}</legend>
@@ -159,13 +166,13 @@
 				</fieldset>
 
 				<fieldset class="fieldset">
-					<legend class="fieldset-legend">High sensitivity</legend>
+					<legend class="fieldset-legend">{m.share_high_sensitivity_label()}</legend>
 					<label class="label cursor-pointer justify-start gap-3">
 						<input class="toggle" type="checkbox" bind:checked={highSensitivity} />
-						<span class="label-text">High sensitivity</span>
+						<span class="label-text">{m.share_high_sensitivity_label()}</span>
 					</label>
 					<p class="mt-1 text-xs text-base-content/60">
-						Only applies to newly uploaded or pending files, not older files.
+						{m.share_high_sensitivity_help()}
 					</p>
 				</fieldset>
 			</div>

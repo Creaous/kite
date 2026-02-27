@@ -66,6 +66,7 @@
 	let responseUploads = $state<UploadedFile[]>([]);
 	let responding = $state(false);
 	let respondMessage = $state('');
+	const shareFlowAlert = $derived(data.alertSettings?.shareFlowAlert ?? null);
 
 	function getDialog(id: string) {
 		const dialog = document.getElementById(id);
@@ -427,6 +428,11 @@
 	<section class="card border border-base-300 bg-base-100 shadow-sm">
 		<div class="card-body">
 			<h2 class="card-title">{m.request_create_title()}</h2>
+			{#if shareFlowAlert?.enabled && shareFlowAlert.message.trim()}
+				<div role="alert" class={`alert alert-${shareFlowAlert.type}`}>
+					<span>{shareFlowAlert.message}</span>
+				</div>
+			{/if}
 			{#if checkingCreatePermission}
 				<p class="text-sm text-base-content/70">{m.request_checking_permissions()}</p>
 			{:else if !canCreateRequests}
@@ -590,6 +596,11 @@
 	<section class="card border border-base-300 bg-base-100 shadow-sm">
 		<div class="card-body space-y-4">
 			<h2 class="card-title">{m.request_respond_title()}</h2>
+			{#if shareFlowAlert?.enabled && shareFlowAlert.message.trim()}
+				<div role="alert" class={`alert alert-${shareFlowAlert.type}`}>
+					<span>{shareFlowAlert.message}</span>
+				</div>
+			{/if}
 			<fieldset class="fieldset">
 				<legend class="fieldset-legend">{m.request_code()}</legend>
 				<input class="input-bordered input w-full" bind:value={respondCode} type="text" />

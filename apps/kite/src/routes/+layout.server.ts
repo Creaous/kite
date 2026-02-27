@@ -1,5 +1,9 @@
 import { redirect } from '@sveltejs/kit';
-import { getAuthSettings, getBrandingSettings } from '$lib/server/services/settings';
+import {
+	getAlertSettings,
+	getAuthSettings,
+	getBrandingSettings
+} from '$lib/server/services/settings';
 import { getConfiguredSocialProvidersFromEnv } from '$lib/server/auth-providers';
 import { isAnonymousEnabled, isEmailAndPasswordEnabled } from '$lib/server/auth';
 import type { LayoutServerLoad } from './$types';
@@ -22,6 +26,7 @@ function toSafeNext(pathname: string, search: string) {
 export const load: LayoutServerLoad = async ({ locals, url }) => {
 	const pathname = url.pathname;
 	const branding = await getBrandingSettings();
+	const alertSettings = await getAlertSettings();
 	const { configuredProviderIds } = getConfiguredSocialProvidersFromEnv();
 	const authSettings = await getAuthSettings({
 		registrationEnabled: isEmailAndPasswordEnabled,
@@ -45,6 +50,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 		user: locals.user ?? null,
 		session: locals.session ?? null,
 		branding,
+		alertSettings,
 		authSettings,
 		isDevelopment: process.env.NODE_ENV === 'development'
 	};
