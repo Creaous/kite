@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 import { isEmailConfigured, resetEmailTransportForTests, sendEmail } from './email';
 
 type ShareRequestRecipient = {
@@ -21,6 +24,8 @@ type ShareRequestEmailResult = {
 	accepted: string[];
 	rejected: string[];
 };
+
+let shareRequestTemplateHtml: string | null = null;
 
 function toSubject(title: string | null, code: string) {
 	if (title && title.trim()) {
@@ -54,26 +59,140 @@ function toTextBody(payload: ShareRequestEmailPayload, recipient?: ShareRequestR
 	return lines.join('\n');
 }
 
-function toHtmlBody(payload: ShareRequestEmailPayload, recipient?: ShareRequestRecipient) {
+function escapeHtml(value: string) {
+	return value
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
+}
+
+function isTruthy(value: string | null | undefined) {
+	return Boolean(value && value.trim());
+}
+
+function renderTemplateConditionals(
+	template: string,
+	values: Record<string, string | null | undefined>
+): string {
+	const openTagPrefix = '{{#if ';
+	const closeTag = '{{/if}}';
+
+	function parse(index: number): [string, number] {
+		let output = '';
+
+		while (index < template.length) {
+			if (template.startsWith(closeTag, index)) {
+				return [output, index + closeTag.length];
+			}
+
+			if (template.startsWith(openTagPrefix, index)) {
+				const keyStart = index + openTagPrefix.length;
+				const keyEnd = template.indexOf('}}', keyStart);
+
+				if (keyEnd === -1) {
+					output += template.slice(index);
+					return [output, template.length];
+				}
+
+				const key = template.slice(keyStart, keyEnd).trim();
+				const [inner, nextIndex] = parse(keyEnd + 2);
+
+				if (isTruthy(values[key])) {
+					output += inner;
+				}
+
+				index = nextIndex;
+				continue;
+			}
+
+			output += template[index];
+			index += 1;
+		}
+
+		return [output, index];
+	}
+
+	return parse(0)[0];
+}
+
+function renderTemplateVariables(
+	template: string,
+	values: Record<string, string | null | undefined>
+): string {
+	return template.replace(/{{\s*([A-Za-z0-9_]+)\s*}}/g, (_match, key: string) => {
+		const value = values[key];
+		return value ? escapeHtml(value) : '';
+	});
+}
+
+async function resolveShareRequestTemplatePath() {
+	const envDir = process.env.EMAIL_TEMPLATES_DIR?.trim();
+	const candidateDirs = [
+		envDir,
+		path.resolve(process.cwd(), 'emails'),
+		path.resolve(process.cwd(), '../../packages/emails/build_production'),
+		path.resolve(process.cwd(), '../../packages/emails/build_local')
+	].filter((value): value is string => Boolean(value));
+
+	for (const candidateDir of candidateDirs) {
+		const candidatePath = path.join(candidateDir, 'share-request.html');
+
+		try {
+			await fs.access(candidatePath);
+			return candidatePath;
+		} catch {
+			// keep searching
+		}
+	}
+
+	throw new Error('Share request email template not found');
+}
+
+async function getShareRequestTemplateHtml() {
+	if (shareRequestTemplateHtml) {
+		return shareRequestTemplateHtml;
+	}
+
+	const templatePath = await resolveShareRequestTemplatePath();
+	shareRequestTemplateHtml = await fs.readFile(templatePath, 'utf8');
+	return shareRequestTemplateHtml;
+}
+
+async function toHtmlBody(payload: ShareRequestEmailPayload, recipient?: ShareRequestRecipient) {
 	const title = payload.shareRequest.title ?? payload.shareRequest.code;
-	const message = payload.shareRequest.message?.trim();
-	const requesterName = payload.shareRequest.requesterName?.trim();
-	const requesterEmail = payload.shareRequest.requesterEmail?.trim();
-	const recipientName = recipient?.name?.trim();
+	const message = payload.shareRequest.message?.trim() || null;
+	const requesterName = payload.shareRequest.requesterName?.trim() || null;
+	const requesterEmail = payload.shareRequest.requesterEmail?.trim() || null;
+	const recipientName = recipient?.name?.trim() || 'there';
+	const year = String(new Date().getFullYear());
 
-	const requester =
-		requesterName || requesterEmail
-			? `<p><strong>Requested by:</strong> ${requesterName ?? 'Unknown'}${requesterEmail ? ` &lt;${requesterEmail}&gt;` : ''}</p>`
-			: '';
+	let logoSrc = '';
+	try {
+		logoSrc = new URL('/images/logo.png', payload.requestUrl).toString();
+	} catch {
+		logoSrc = '';
+	}
 
-	return [
-		recipientName ? `<p>Hi ${recipientName},</p>` : '<p>Hello,</p>',
-		"<p>You've received a file request.</p>",
-		`<p><strong>Request:</strong> ${title}</p>`,
-		`<p><a href="${payload.requestUrl}">${payload.requestUrl}</a></p>`,
-		message ? `<p><strong>Message:</strong><br/>${message}</p>` : '',
-		requester
-	].join('');
+	const template = await getShareRequestTemplateHtml();
+	const withConditionals = renderTemplateConditionals(template, {
+		message,
+		requesterName,
+		requesterEmail
+	});
+
+	return renderTemplateVariables(withConditionals, {
+		recipientName,
+		title,
+		code: payload.shareRequest.code,
+		message,
+		requestUrl: payload.requestUrl,
+		requesterName,
+		requesterEmail,
+		year,
+		logoSrc
+	});
 }
 
 export function isShareRequestEmailConfigured() {
@@ -94,6 +213,8 @@ export async function sendShareRequestEmail(
 		const email = recipient.email.trim().toLowerCase();
 
 		try {
+			const html = await toHtmlBody(payload, recipient);
+
 			const result = await sendEmail({
 				to: {
 					email,
@@ -101,7 +222,7 @@ export async function sendShareRequestEmail(
 				},
 				subject: toSubject(payload.shareRequest.title, payload.shareRequest.code),
 				text: toTextBody(payload, recipient),
-				html: toHtmlBody(payload, recipient)
+				html
 			});
 
 			if (Array.isArray(result.rejected) && result.rejected.length > 0) {
@@ -121,5 +242,6 @@ export async function sendShareRequestEmail(
 }
 
 export function resetShareRequestMailerForTests() {
+	shareRequestTemplateHtml = null;
 	resetEmailTransportForTests();
 }

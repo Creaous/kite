@@ -3,16 +3,21 @@ FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-WORKDIR /app
+WORKDIR /workspace
 RUN corepack enable
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/kite/package.json ./apps/kite/package.json
+COPY packages/emails/package.json ./packages/emails/package.json
+COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
+COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 FROM deps AS build
 COPY . .
-RUN pnpm run build
+RUN pnpm --filter kite run build
+RUN pnpm --filter emails run build
 RUN pnpm prune --prod
 
 FROM node:22-alpine AS runtime
@@ -26,11 +31,12 @@ WORKDIR /app
 RUN addgroup -S app \
 	&& adduser -S -u 10001 -G app app
 
-COPY --from=build --chown=app:app /app/build ./build
-COPY --from=build --chown=app:app /app/node_modules ./node_modules
-COPY --from=build --chown=app:app /app/package.json ./package.json
-COPY --from=build --chown=app:app /app/scripts ./scripts
-COPY --from=build --chown=app:app /app/drizzle ./drizzle
+COPY --from=build --chown=app:app /workspace/apps/kite/build ./build
+COPY --from=build --chown=app:app /workspace/node_modules ./node_modules
+COPY --from=build --chown=app:app /workspace/apps/kite/package.json ./package.json
+COPY --from=build --chown=app:app /workspace/apps/kite/scripts ./scripts
+COPY --from=build --chown=app:app /workspace/apps/kite/drizzle ./drizzle
+COPY --from=build --chown=app:app /workspace/packages/emails/build_production ./emails
 
 RUN mkdir -p /app/uploads /tmp && chown -R app:app /app/uploads /tmp
 
