@@ -80,6 +80,14 @@
 </svelte:head>
 
 <div class="min-h-screen bg-base-200">
+	{#if data.isDevelopment}
+		<div role="alert" class="alert rounded-none alert-warning">
+			<span
+				>This is a development instance, please do not upload any files here that you wish to keep
+				available.</span
+			>
+		</div>
+	{/if}
 	<header class="navbar border-b border-base-300 bg-base-100 px-4 shadow-sm">
 		<div class="flex-1">
 			<a href={resolve('/')} class="btn text-lg btn-ghost">

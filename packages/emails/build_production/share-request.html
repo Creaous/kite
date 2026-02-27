@@ -1,58 +1,113 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>File request</title>
-</head>
-<body style="font-family: Inter,
-          system-ui,
-          -apple-system,
-          'Segoe UI',
-          Roboto,
-          'Helvetica Neue',
-          Arial; background: #f1f5f9; margin: 0; padding: 24px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 8px 30px rgba(2, 6, 23, 0.08);">
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <img src="{{logoSrc}}" alt="{{brandingName}}" style="width: 56px; height: auto;" width="56" height="auto">
-      <div>
-        <div style="color: #64748b; font-size: 13px;">{{brandingName}}</div>
-        <div style="color: #64748b; font-size: 13px;">File request</div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>File request</title>
+  </head>
+  <body
+    style="
+      font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        &quot;Segoe UI&quot;,
+        Roboto,
+        &quot;Helvetica Neue&quot;,
+        Arial;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 24px;
+    "
+  >
+    <div
+      style="
+        max-width: 600px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 28px;
+        box-shadow: 0 8px 30px rgba(2, 6, 23, 0.08);
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 12px">
+        <img
+          src="{{logoSrc}}"
+          alt="{{brandingName}}"
+          style="width: 56px; height: auto"
+          width="56"
+          height="auto"
+        />
+        <div>
+          <div style="color: #64748b; font-size: 13px">{{brandingName}}</div>
+          <div style="color: #64748b; font-size: 13px">File request</div>
+        </div>
       </div>
-    </div>
-    <h1 style="margin: 18px 0 6px; font-size: 20px; color: #0f172a;">{{title}}</h1>
-    <p style="margin: 0 0 18px; color: #475569;">Hi {{recipientName}},</p>
-    <p style="color: #64748b; font-size: 13px;">
-      You've received a file request. Use the button below to view and
-      respond.
-    </p>
-    <div style="background: #f8fafc; border-radius: 8px; padding: 14px; margin: 10px 0; color: #0f172a;">
-      <strong>Request:</strong>
-      <div style="margin-top: 6px">
-        {{title}} <span style="color: #64748b; font-size: 13px;">({{code}})</span>
-      </div>
-      {{#if message}}
+      <h1 style="margin: 18px 0 6px; font-size: 20px; color: #0f172a">
+        {{title}}
+      </h1>
+      <p style="margin: 0 0 18px; color: #475569">Hi {{recipientName}},</p>
+      <p style="color: #64748b; font-size: 13px">
+        You've received a file request. Use the button below to view and
+        respond.
+      </p>
+      <div
+        style="
+          background: #f8fafc;
+          border-radius: 8px;
+          padding: 14px;
+          margin: 10px 0;
+          color: #0f172a;
+        "
+      >
+        <strong>Request:</strong>
+        <div style="margin-top: 6px">
+          {{title}}
+          <span style="color: #64748b; font-size: 13px">({{code}})</span>
+        </div>
+        {{#if message}}
         <div style="margin-top: 10px">
           <strong>Message</strong>
-          <div style="color: #64748b; font-size: 13px; margin-top: 6px;">{{message}}</div>
+          <div style="color: #64748b; font-size: 13px; margin-top: 6px">
+            {{message}}
+          </div>
         </div>
-      {{/if}} {{#if requesterName}}
-        <div style="color: #64748b; font-size: 13px; margin-top: 10px;">
+        {{/if}} {{#if requesterName}}
+        <div style="color: #64748b; font-size: 13px; margin-top: 10px">
           Requested by: {{requesterName}}{{#if requesterEmail}}
-            &lt;{{requesterEmail}}&gt;{{/if}}
+          &lt;{{requesterEmail}}&gt;{{/if}}
         </div>
-      {{/if}}
-    </div>
-    <div style="text-align: left; margin-top: 14px">
-      <a href="{{requestUrl}}" style="display: inline-block; background: #0ea5a4; color: white; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">View request</a>
-    </div>
-    <div style="height: 1px; background: #e6edf3; margin: 18px 0; border-radius: 1px;"></div>
-    <div style="margin-top: 22px; font-size: 13px; color: #94a3b8;">
-      <div>
-        If you weren't expecting this, you can safely ignore this email.
+        {{/if}}
       </div>
-      <div style="margin-top: 6px">&copy; {{year}} {{brandingName}}</div>
+      <div style="text-align: left; margin-top: 14px">
+        <a
+          href="{{requestUrl}}"
+          style="
+            display: inline-block;
+            background: #0ea5a4;
+            color: white;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+          "
+          >View request</a
+        >
+      </div>
+      <div
+        style="
+          height: 1px;
+          background: #e6edf3;
+          margin: 18px 0;
+          border-radius: 1px;
+        "
+      ></div>
+      <div style="margin-top: 22px; font-size: 13px; color: #94a3b8">
+        <div>
+          If you weren't expecting this, you can safely ignore this email.
+        </div>
+        <div style="margin-top: 6px">&copy; {{year}} {{brandingName}}</div>
+      </div>
     </div>
-  </div>
-</body>
+  </body>
 </html>

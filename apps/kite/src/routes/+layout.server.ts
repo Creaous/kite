@@ -45,6 +45,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 		user: locals.user ?? null,
 		session: locals.session ?? null,
 		branding,
-		authSettings
+		authSettings,
+		isDevelopment: process.env.NODE_ENV === 'development'
 	};
 };

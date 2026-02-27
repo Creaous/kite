@@ -2,9 +2,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { db } from '../db';
 import { uploads, user, shares } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { unzipSync } from 'fflate';
 import {
 	createShare,
 	createShareDownloadGrant,
+	createShareZipDownload,
 	getPublicShareByCode,
 	getShare,
 	softDeleteShare
@@ -302,5 +304,55 @@ describe('share service (db)', () => {
 		expect(first.token).toBeTruthy();
 
 		await expect(createShareDownloadGrant(share.code)).rejects.toThrow('Download limit reached');
+	});
+
+	it('generates share codes using non-ambiguous charset', async () => {
+		const [a] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 's7-fp-1',
+				filename: 'code.txt',
+				size: 12,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(a.id);
+
+		const share = await createShare({
+			title: 'Code charset',
+			uploads: [{ uploadId: a.id }]
+		});
+		createdShares.push(share.id);
+
+		expect(share.code).toHaveLength(6);
+		expect(share.code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]+$/);
+	});
+
+	it('sanitizes zip entry names for unsafe filenames', async () => {
+		const [a] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 's8-fp-1',
+				filename: '../a\\b:c*?.txt',
+				size: 0,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(a.id);
+
+		const share = await createShare({
+			title: 'Zip sanitize',
+			uploads: [{ uploadId: a.id }]
+		});
+		createdShares.push(share.id);
+
+		const zipDownload = await createShareZipDownload(share.code);
+		const entries = unzipSync(zipDownload.content);
+		const names = Object.keys(entries);
+
+		expect(names).toHaveLength(1);
+		expect(names[0]).toBe('.._a_b_c__.txt');
 	});
 });

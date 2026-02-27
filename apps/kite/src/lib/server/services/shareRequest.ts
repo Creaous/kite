@@ -2,6 +2,7 @@ import { db } from '../db';
 import { shareRequests } from '../db/schema';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { createShare } from './share';
+import { randomInt } from 'node:crypto';
 
 export type CreateShareRequestDTO = {
 	title: string;
@@ -17,7 +18,7 @@ export type ShareRequestUpload = { uploadId: string; name?: string };
 function generateCode(length = 6) {
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	let out = '';
-	for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
+	for (let i = 0; i < length; i++) out += chars[randomInt(0, chars.length)];
 	return out;
 }
 
@@ -63,6 +64,9 @@ export async function respondToRequest(code: string, uploads: ShareRequestUpload
 		.limit(1);
 	if (!req) throw new Error('Share request not found');
 	if (req.status !== 'open') throw new Error('Share request is not open');
+	if (req.expiresAt && new Date(req.expiresAt) < new Date()) {
+		throw new Error('Share request has expired');
+	}
 
 	const shareDto = {
 		title: req.title ?? 'Response',

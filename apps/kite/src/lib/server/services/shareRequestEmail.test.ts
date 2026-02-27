@@ -84,13 +84,17 @@ describe('shareRequestEmail service', () => {
 		expect(sendEmailMock.mock.calls[0][0].text).toContain('Hi Alice,');
 		expect(sendEmailMock.mock.calls[0][0].text).toContain('File request details:');
 		expect(sendEmailMock.mock.calls[0][0].text).toContain('- Code: ABC123');
-		expect(sendEmailMock.mock.calls[0][0].text).toContain('View request: https://kite.example.com/r/ABC123');
+		expect(sendEmailMock.mock.calls[0][0].text).toContain(
+			'View request: https://kite.example.com/r/ABC123'
+		);
 		expect(sendEmailMock.mock.calls[0][0].text).toContain(
 			"If you weren't expecting this, you can safely ignore this email."
 		);
 		expect(sendEmailMock.mock.calls[0][0].html).toContain('Hi Alice');
 		expect(sendEmailMock.mock.calls[0][0].html).toContain('Kite');
-		expect(sendEmailMock.mock.calls[0][0].html).toContain('https://kite.example.com/images/logo.png');
+		expect(sendEmailMock.mock.calls[0][0].html).toContain(
+			'https://kite.example.com/images/logo.png'
+		);
 		expect(sendEmailMock.mock.calls[1][0]).toMatchObject({
 			to: { email: 'to2@example.com', name: undefined },
 			subject: 'File request: Upload tax docs'
@@ -148,7 +152,9 @@ describe('shareRequestEmail service', () => {
 		});
 
 		expect(sendEmailMock.mock.calls[0][0].html).toContain('Acme Files');
-		expect(sendEmailMock.mock.calls[0][0].html).toContain('https://kite.example.com/branding/logo.svg');
+		expect(sendEmailMock.mock.calls[0][0].html).toContain(
+			'https://kite.example.com/branding/logo.svg'
+		);
 	});
 
 	it('throws when recipients are empty', async () => {

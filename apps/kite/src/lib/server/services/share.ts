@@ -5,6 +5,7 @@ import argon2 from '@node-rs/argon2';
 import { uploads } from '../db/schema';
 import { generateDownloadToken } from './token';
 import { promises as fs } from 'node:fs';
+import { randomInt } from 'node:crypto';
 import { zipSync } from 'fflate';
 
 export type CreateShareDTO = {
@@ -24,13 +25,23 @@ const DEFAULT_SHARE_EXPIRY_DAYS = 30;
 function generateCode(length = 6) {
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	let out = '';
-	for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
+	for (let i = 0; i < length; i++) out += chars[randomInt(0, chars.length)];
 	return out;
 }
 
 function toSafeFilename(filename: string | null | undefined, fallback: string) {
-	const source = filename?.trim() || fallback;
-	return source.replace(/[\\/\r\n\0]/g, '_');
+	const source = filename?.trim() || fallback.trim() || 'file';
+	const sanitized = source
+		.replace(/\//g, '_')
+		.replace(/\\/g, '_')
+		.replace(/[<>:"|?*\p{Cc}]/gu, '_')
+		.replace(/\s+/g, ' ')
+		.replace(/[. ]+$/g, '')
+		.trim();
+
+	const safe =
+		sanitized.length > 0 && sanitized !== '.' && sanitized !== '..' ? sanitized : fallback;
+	return safe.slice(0, 255);
 }
 
 export async function createShare(dto: CreateShareDTO) {

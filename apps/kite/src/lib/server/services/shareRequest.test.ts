@@ -80,4 +80,39 @@ describe('shareRequest service (db)', () => {
 		expect(updated.requesterEmail).toBe('updated@example.com');
 		expect(updated.hideRequesterEmail).toBe(true);
 	});
+
+	it('generates request codes using non-ambiguous charset', async () => {
+		const req = await createShareRequest({
+			title: 'Code format request',
+			requester: { name: 'Requester' }
+		});
+		createdRequests.push(req.id);
+
+		expect(req.code).toHaveLength(6);
+		expect(req.code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]+$/);
+	});
+
+	it('rejects responding to expired requests', async () => {
+		const req = await createShareRequest({
+			title: 'Expired request',
+			expiresAt: new Date(Date.now() - 60_000)
+		});
+		createdRequests.push(req.id);
+
+		const [a] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'rq-fp-expired-1',
+				filename: 'expired.jpg',
+				size: 10,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(a.id);
+
+		await expect(respondToRequest(req.code!, [{ uploadId: a.id }])).rejects.toThrow(
+			'Share request has expired'
+		);
+	});
 });
