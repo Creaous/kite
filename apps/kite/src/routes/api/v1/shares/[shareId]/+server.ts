@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 import { includesInternalError } from '$lib/server/api-errors';
-import { requireAuthenticatedUser } from '$lib/server/http-auth';
+import { forbiddenResponse, requireAuthenticatedUser } from '$lib/server/http-auth';
 import { getShare, softDeleteShare, updateShare } from '$lib/server/services/share';
 
 /**
@@ -45,6 +45,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const data = await getShare(shareId);
 	if (!data) {
 		return json({ error: { code: 'NOT_FOUND', message: 'Share not found' } }, { status: 404 });
+	}
+
+	const isAdmin = locals.user?.role === 'admin';
+	if (!isAdmin && data.createdBy !== locals.user?.id) {
+		return forbiddenResponse('You do not have permission to access this share');
 	}
 
 	return json({ data }, { status: 200 });
@@ -90,6 +95,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	try {
+		const existing = await getShare(shareId);
+
+		const isAdmin = locals.user?.role === 'admin';
+		if (existing && !isAdmin && existing.createdBy !== locals.user?.id) {
+			return forbiddenResponse('You do not have permission to delete this share');
+		}
+
 		await softDeleteShare(shareId);
 		return new Response(null, { status: 204 });
 	} catch (err) {
@@ -166,6 +178,16 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	try {
+		const existing = await getShare(shareId);
+		if (!existing) {
+			return json({ error: { code: 'NOT_FOUND', message: 'Share not found' } }, { status: 404 });
+		}
+
+		const isAdmin = locals.user?.role === 'admin';
+		if (!isAdmin && existing.createdBy !== locals.user?.id) {
+			return forbiddenResponse('You do not have permission to update this share');
+		}
+
 		const body = await request.json();
 		const data = await updateShare(shareId, {
 			title: typeof body?.title === 'string' ? body.title : body?.title === null ? null : undefined,

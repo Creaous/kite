@@ -61,9 +61,9 @@ The site will be available at `http://localhost:5173` (or the port `vite` report
 
 - Migrations are managed with `drizzle-kit`. Migration files live in the `drizzle/` folder.
 - Common commands (see `package.json` scripts):
-  - `pnpm run db:migrate` — run migrations
-  - `pnpm run db:generate` — generate migration from schema
-  - `pnpm run db:push` — push schema changes
+  - `pnpm run db:migrate` - run migrations
+  - `pnpm run db:generate` - generate migration from schema
+  - `pnpm run db:push` - push schema changes
 
 The app runs `scripts/migrate.mjs` during container startup when applicable.
 
@@ -105,14 +105,14 @@ SMTP for share request emailing:
 
 Key scripts are exposed in `package.json`:
 
-- `pnpm dev` — start dev server (Vite + SvelteKit)
-- `pnpm build` — build for production
-- `pnpm start` — run built app
-- `pnpm test` — run unit & e2e tests (`vitest` + `playwright`)
-- `pnpm run openapi:generate` — regenerate OpenAPI spec
-- `pnpm run worker` — start the background worker process
-- `pnpm run prod:up` — start production compose stack
-- `pnpm run prod:up:worker` — start production compose stack with worker profile
+- `pnpm dev` - start dev server (Vite + SvelteKit)
+- `pnpm build` - build for production
+- `pnpm start` - run built app
+- `pnpm test` - run unit & e2e tests (`vitest` + `playwright`)
+- `pnpm run openapi:generate` - regenerate OpenAPI spec
+- `pnpm run worker` - start the background worker process
+- `pnpm run prod:up` - start production compose stack
+- `pnpm run prod:up:worker` - start production compose stack with worker profile
 
 ## Testing
 

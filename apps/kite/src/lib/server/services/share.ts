@@ -35,6 +35,7 @@ function generateCode(length = 6) {
 function toSafeFilename(filename: string | null | undefined, fallback: string) {
 	const source = filename?.trim() || fallback.trim() || 'file';
 	const sanitized = source
+		.replace(/\0/g, '')
 		.replace(/\//g, '_')
 		.replace(/\\/g, '_')
 		.replace(/[<>:"|?*\p{Cc}]/gu, '_')
@@ -52,7 +53,6 @@ export async function createShare(dto: CreateShareDTO) {
 		throw new Error('Invalid share payload: missing uploads');
 	}
 
-	// generate unique code
 	let code = generateCode();
 	for (let i = 0; i < 5; i++) {
 		const [exists] = await db
@@ -95,7 +95,6 @@ export async function createShare(dto: CreateShareDTO) {
 		})
 		.returning();
 
-	// attach uploads
 	for (const u of dto.uploads) {
 		if (!u || !u.uploadId) continue;
 
@@ -115,11 +114,9 @@ export async function createShare(dto: CreateShareDTO) {
 		await db.insert(shareUpload).values({ shareId: created.id, uploadId: u.uploadId });
 	}
 
-	// return share with its uploads
 	const share = await getShareWithFiles(created.id);
 	if (!share) throw new Error('Failed to create share');
 
-	// return a shallow copy without passwordHash to avoid using `delete` on non-optional properties
 	const { passwordHash, ...safeShare } = share;
 	void passwordHash;
 	return safeShare;
@@ -344,6 +341,9 @@ export async function getPublicShareByCode(code: string, password?: string | nul
 	if (!share) throw new Error('Share not found');
 	if (share.expiresAt && new Date(share.expiresAt) < new Date()) throw new Error('Share expired');
 
+	const messageVisibleWithoutPassword = !share.hideMessageBehindPassword;
+	const message = messageVisibleWithoutPassword ? share.message : null;
+
 	await db
 		.update(shares)
 		.set({
@@ -351,9 +351,6 @@ export async function getPublicShareByCode(code: string, password?: string | nul
 			lastViewedAt: new Date()
 		})
 		.where(eq(shares.id, share.id));
-
-	const messageVisibleWithoutPassword = !share.hideMessageBehindPassword;
-	const message = messageVisibleWithoutPassword ? share.message : null;
 
 	if (share.passwordProtected) {
 		if (!password) {

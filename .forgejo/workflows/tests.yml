@@ -19,7 +19,7 @@ jobs:
       image: node:22-bookworm
       options: --security-opt=no-new-privileges:true
     env:
-      CI: 'true'
+      CI: "true"
       NODE_OPTIONS: --max-old-space-size=2048
     steps:
       - name: Checkout
@@ -36,6 +36,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint workspace (also builds emails)
+        run: pnpm lint
 
       - name: Run unit tests
         run: pnpm --filter kite run test:unit -- --run

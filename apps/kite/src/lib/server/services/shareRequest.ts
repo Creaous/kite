@@ -136,6 +136,7 @@ export async function getShareRequestById(requestId: string) {
 		hideRequesterEmail: req.hideRequesterEmail,
 		expiresAt: req.expiresAt,
 		status: req.status,
+		createdBy: req.createdBy,
 		createdAt: req.createdAt
 	};
 }

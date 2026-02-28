@@ -2,8 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 import { includesInternalError } from '$lib/server/api-errors';
-import { requireAuthenticatedUser } from '$lib/server/http-auth';
-import { softDeleteShareRequest, updateShareRequest } from '$lib/server/services/shareRequest';
+import { forbiddenResponse, requireAuthenticatedUser } from '$lib/server/http-auth';
+import {
+	getShareRequestById,
+	softDeleteShareRequest,
+	updateShareRequest
+} from '$lib/server/services/shareRequest';
 
 /**
  * @openapi
@@ -77,6 +81,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	try {
+		const existing = await getShareRequestById(requestId);
+
+		const isAdmin = locals.user?.role === 'admin';
+		if (existing && !isAdmin && existing.createdBy !== locals.user?.id) {
+			return forbiddenResponse('You do not have permission to update this share request');
+		}
+
 		const body = await request.json();
 		const data = await updateShareRequest(requestId, {
 			title: typeof body?.title === 'string' ? body.title : body?.title === null ? null : undefined,
@@ -170,6 +181,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 
 	try {
+		const existing = await getShareRequestById(requestId);
+
+		const isAdmin = locals.user?.role === 'admin';
+		if (existing && !isAdmin && existing.createdBy !== locals.user?.id) {
+			return forbiddenResponse('You do not have permission to delete this share request');
+		}
+
 		await softDeleteShareRequest(requestId);
 		return new Response(null, { status: 204 });
 	} catch (err) {

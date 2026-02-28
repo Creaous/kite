@@ -151,9 +151,9 @@ async function resolveShareRequestTemplatePath() {
 	const envDir = process.env.EMAIL_TEMPLATES_DIR?.trim();
 	const candidateDirs = [
 		envDir,
-		path.resolve(process.cwd(), 'emails'),
+		path.resolve(process.cwd(), '../../packages/emails/build_local'),
 		path.resolve(process.cwd(), '../../packages/emails/build_production'),
-		path.resolve(process.cwd(), '../../packages/emails/build_local')
+		path.resolve(process.cwd(), 'emails')
 	].filter((value): value is string => Boolean(value));
 
 	for (const candidateDir of candidateDirs) {

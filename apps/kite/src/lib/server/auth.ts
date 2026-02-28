@@ -38,6 +38,13 @@ if (process.env.NODE_ENV === 'production') {
 	if (!authSecret || authSecret === 'default-build-secret') {
 		throw new Error('BETTER_AUTH_SECRET must be configured in production');
 	}
+} else {
+	if (!authSecret || authSecret === 'default-build-secret') {
+		console.warn(
+			'[security] BETTER_AUTH_SECRET is not set or is using the insecure default value. ' +
+				'Set a strong random secret via the BETTER_AUTH_SECRET environment variable.'
+		);
+	}
 }
 
 const { providers: socialProviders, configuredProviderIds } = getConfiguredSocialProvidersFromEnv();
@@ -47,9 +54,6 @@ const enabledPluginIds = resolveAuthPluginIds({
 	passkey: isPasskeyEnabled
 });
 
-/**
- * Better Auth plugins configuration based on environment variables
- */
 const plugins = [
 	adminPlugin({
 		ac,
@@ -63,11 +67,6 @@ const plugins = [
 	...(enabledPluginIds.has('passkey') ? [passkey()] : [])
 ] satisfies BetterAuthPlugin[];
 
-/**
- * Check if a specific auth plugin is enabled
- * @param value - Plugin ID to check
- * @returns True if plugin is enabled
- */
 export function isPluginAvailable(value: string): value is AuthPluginId {
 	return enabledPluginIds.has(value as AuthPluginId);
 }
@@ -76,26 +75,14 @@ export function getEnabledAuthPlugins() {
 	return toOrderedAuthPluginIds(enabledPluginIds);
 }
 
-/**
- * Check if a specific social provider is configured
- * @param socialProvider - Social provider name
- * @returns True if provider is available
- */
 export function isSocialProviderAvailable(socialProvider: SocialProvidersEnum) {
 	return !!socialProviders[socialProvider];
 }
 
-/**
- * Get list of all configured social providers
- * @returns Array of provider names
- */
 export function getAvailableSocialProviders() {
 	return configuredProviderIds;
 }
 
-/**
- * Better Auth instance configured with database adapter and plugins
- */
 export const auth = betterAuth({
 	baseURL: origin,
 	database: drizzleAdapter(db, {
@@ -109,7 +96,7 @@ export const auth = betterAuth({
 	advanced: {
 		disableOriginCheck: process.env.NODE_ENV === 'development' ? true : false
 	},
-	secret: authSecret ?? 'default-build-secret',
+	secret: authSecret && authSecret !== 'default-build-secret' ? authSecret : 'default-build-secret',
 	socialProviders,
 	plugins,
 	hooks: {
@@ -179,7 +166,6 @@ export const auth = betterAuth({
 				throw new APIError('FORBIDDEN', { message: 'Anonymous access is disabled.' });
 			}
 
-			// Protect the anonymous endpoint by requiring a server-side token
 			if (!ctx.query || !ctx.query.token) {
 				throw new APIError('UNAUTHORIZED', { message: 'This endpoint requires a valid token.' });
 			}

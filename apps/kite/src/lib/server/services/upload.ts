@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
@@ -11,12 +11,11 @@ function getLocalUploadsDir() {
 }
 
 function getLocalUploadPath(uploadId: string) {
-	return join(getLocalUploadsDir(), `${uploadId}.bin`);
+	const sanitized = uploadId.replace(/\0/g, '');
+	const safeId = basename(sanitized);
+	return join(getLocalUploadsDir(), `${safeId}.bin`);
 }
 
-/**
- * Initiate an upload record. Enforces idempotency by fingerprint + uploadedBy.
- */
 export async function initiateUpload(dto: {
 	filename: string;
 	relativePath?: string | null;
@@ -42,7 +41,6 @@ export async function initiateUpload(dto: {
 	if (!filename || !size || !fingerprint) throw new Error('Missing required upload parameters');
 
 	if (!highSensitivity) {
-		// Try to find existing uploads (idempotency / dedupe by content)
 		const whereClause = and(
 			eq(uploads.fingerprint, fingerprint),
 			uploadedBy ? eq(uploads.uploadedBy, uploadedBy) : isNull(uploads.uploadedBy),
@@ -142,6 +140,13 @@ type UploadActor = {
 
 function assertActorCanAccessUpload(upload: { uploadedBy: string | null }, actor?: UploadActor) {
 	if (!actor) {
+		if (upload.uploadedBy) {
+			throw new Error('Forbidden upload access');
+		}
+		return;
+	}
+
+	if (actor.isAdmin) {
 		return;
 	}
 
@@ -150,9 +155,6 @@ function assertActorCanAccessUpload(upload: { uploadedBy: string | null }, actor
 	}
 }
 
-/**
- * Append a chunk by updating uploadedBytes. Storage handling is left to provider integration.
- */
 export async function appendChunk(uploadId: string, chunk: ArrayBuffer, actor?: UploadActor) {
 	const byteLength = chunk.byteLength;
 	const [existing] = await db
@@ -189,9 +191,6 @@ export async function appendChunk(uploadId: string, chunk: ArrayBuffer, actor?: 
 	};
 }
 
-/**
- * Finalize or cancel an upload. Finalize moves status to processing then ready.
- */
 export async function finalizeUpload(
 	uploadId: string,
 	action: 'finalize' | 'cancel',

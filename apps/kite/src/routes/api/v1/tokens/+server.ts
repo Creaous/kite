@@ -1,8 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-import { requireAuthenticatedUser } from '$lib/server/http-auth';
+import { requireAdminUser, requireAuthenticatedUser } from '$lib/server/http-auth';
 import { generateToken } from '$lib/server/services/token';
+
+const USER_ALLOWED_PURPOSES = new Set(['download']);
+const ADMIN_ALLOWED_PURPOSES = new Set(['download', 'anonymous', 'generic']);
 
 /**
  * @openapi
@@ -54,6 +57,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (!subject || !Number.isFinite(expiresInSec) || expiresInSec <= 0) {
 			return json(
 				{ error: { code: 'INVALID_INPUT', message: 'subject and expiresInSec are required' } },
+				{ status: 400 }
+			);
+		}
+
+		const isAdmin = locals.user?.role === 'admin';
+		const allowedPurposes = isAdmin ? ADMIN_ALLOWED_PURPOSES : USER_ALLOWED_PURPOSES;
+
+		if (!allowedPurposes.has(purpose)) {
+			const notAdmin = requireAdminUser(locals);
+			if (notAdmin) return notAdmin;
+		}
+
+		const maxExpiry = isAdmin ? 86400 : 3600;
+		if (expiresInSec > maxExpiry) {
+			return json(
+				{
+					error: {
+						code: 'INVALID_INPUT',
+						message: `expiresInSec must not exceed ${maxExpiry} seconds`
+					}
+				},
 				{ status: 400 }
 			);
 		}

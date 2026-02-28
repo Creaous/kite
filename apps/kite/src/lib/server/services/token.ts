@@ -26,10 +26,6 @@ export type AnonymousToken = jose.JWTPayload & {
 	ipAddress?: string;
 };
 
-/**
- * Generate a JWT token and persist a short-lived token record in `token_store`.
- * The DB record contains `token`, `subject`, `purpose`, `expiresAt`, and `used`.
- */
 export async function generateToken(
 	payload: Record<string, unknown>,
 	subject?: string,
@@ -44,13 +40,11 @@ export async function generateToken(
 		.setSubject(subject ?? String(payload['sub'] ?? ''))
 		.sign(tokenSecret);
 
-	// Verify locally to obtain the numeric `exp` claim
 	const verified = await jose.jwtVerify(jwt, tokenSecret).catch(() => null);
 	let expiresAt: Date;
 	if (verified && verified.payload && typeof verified.payload.exp === 'number') {
 		expiresAt = new Date(verified.payload.exp * 1000);
 	} else {
-		// fallback: short ttl
 		expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 	}
 
@@ -158,9 +152,6 @@ export function decodeToken(token: string) {
 	return decompressed.toString('utf-8');
 }
 
-/**
- * Verify a JWT token and check its status in the database
- */
 export async function verifyToken(token: string) {
 	let payload: DownloadToken;
 
@@ -181,7 +172,6 @@ export async function verifyToken(token: string) {
 		throw error(401, { message: 'Token is revoked', code: 'REVOKED_TOKEN' });
 	}
 
-	// check expiry
 	if (_token.expiresAt && new Date(_token.expiresAt) < new Date()) {
 		throw error(401, { message: 'Token expired', code: 'EXPIRED_TOKEN' });
 	}

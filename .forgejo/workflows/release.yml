@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: read
@@ -191,11 +191,11 @@ jobs:
             if [ -n "$previous_tag" ]; then
               echo "## Changes since $previous_tag"
               echo
-              git log --no-merges --reverse --pretty='- %s (%h) — @%an' "$previous_tag..$current_tag"
+              git log --no-merges --reverse --pretty='- %s (%h) - @%an' "$previous_tag..$current_tag"
             else
               echo "## Changes"
               echo
-              git log --no-merges --reverse --pretty='- %s (%h) — @%an' "$current_tag"
+              git log --no-merges --reverse --pretty='- %s (%h) - @%an' "$current_tag"
             fi
           } > RELEASE_NOTES.md
 

@@ -25,11 +25,8 @@ export const shareUpload = pgTable(
 		createdAt: timestamp('created_at').defaultNow().notNull()
 	},
 	(table) => [
-		// Index for looking up all uploads in a share (most common query)
 		index('share_upload_shareId_idx').on(table.shareId),
-		// Index for looking up all shares using an upload (for deduplication checks)
 		index('share_upload_uploadId_idx').on(table.uploadId),
-		// Unique constraint to prevent duplicate share-upload pairs
 		unique('share_upload_unique_pair').on(table.shareId, table.uploadId)
 	]
 );
