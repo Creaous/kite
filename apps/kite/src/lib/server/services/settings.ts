@@ -1,11 +1,13 @@
+import type { SupportedSocialProviderId } from '$lib/server/auth-providers';
 import { db } from '$lib/server/db';
 import { settings } from '$lib/server/db/schema';
-import type { SupportedSocialProviderId } from '$lib/server/auth-providers';
 import { eq } from 'drizzle-orm';
 
-const BRANDING_KEY = 'branding';
-const AUTH_SETTINGS_KEY = 'auth';
-const ALERT_SETTINGS_KEY = 'alerts';
+const SETTINGS_KEYS = {
+	branding: 'branding',
+	auth: 'auth',
+	alerts: 'alerts'
+} as const;
 
 export type AlertType = 'info' | 'success' | 'warning' | 'error';
 
@@ -169,7 +171,11 @@ function toAuthSettings(
 }
 
 export async function getBrandingSettings() {
-	const [row] = await db.select().from(settings).where(eq(settings.key, BRANDING_KEY)).limit(1);
+	const [row] = await db
+		.select()
+		.from(settings)
+		.where(eq(settings.key, SETTINGS_KEYS.branding))
+		.limit(1);
 
 	if (!row) {
 		return defaultBranding;
@@ -199,13 +205,16 @@ export async function saveBrandingSettings(input: Partial<BrandingSettings>) {
 	const [existing] = await db
 		.select({ key: settings.key })
 		.from(settings)
-		.where(eq(settings.key, BRANDING_KEY))
+		.where(eq(settings.key, SETTINGS_KEYS.branding))
 		.limit(1);
 
 	if (existing) {
-		await db.update(settings).set({ value: serialized }).where(eq(settings.key, BRANDING_KEY));
+		await db
+			.update(settings)
+			.set({ value: serialized })
+			.where(eq(settings.key, SETTINGS_KEYS.branding));
 	} else {
-		await db.insert(settings).values({ key: BRANDING_KEY, value: serialized });
+		await db.insert(settings).values({ key: SETTINGS_KEYS.branding, value: serialized });
 	}
 
 	return next;
@@ -216,7 +225,7 @@ export async function getAuthSettings(defaults: Partial<AuthSettingsDefaults> = 
 	const [row] = await db
 		.select()
 		.from(settings)
-		.where(eq(settings.key, AUTH_SETTINGS_KEY))
+		.where(eq(settings.key, SETTINGS_KEYS.auth))
 		.limit(1);
 
 	if (!row) {
@@ -261,13 +270,16 @@ export async function saveAuthSettings(
 	const [existing] = await db
 		.select({ key: settings.key })
 		.from(settings)
-		.where(eq(settings.key, AUTH_SETTINGS_KEY))
+		.where(eq(settings.key, SETTINGS_KEYS.auth))
 		.limit(1);
 
 	if (existing) {
-		await db.update(settings).set({ value: serialized }).where(eq(settings.key, AUTH_SETTINGS_KEY));
+		await db
+			.update(settings)
+			.set({ value: serialized })
+			.where(eq(settings.key, SETTINGS_KEYS.auth));
 	} else {
-		await db.insert(settings).values({ key: AUTH_SETTINGS_KEY, value: serialized });
+		await db.insert(settings).values({ key: SETTINGS_KEYS.auth, value: serialized });
 	}
 
 	return next;
@@ -277,7 +289,7 @@ export async function getAlertSettings() {
 	const [row] = await db
 		.select()
 		.from(settings)
-		.where(eq(settings.key, ALERT_SETTINGS_KEY))
+		.where(eq(settings.key, SETTINGS_KEYS.alerts))
 		.limit(1);
 
 	if (!row) {
@@ -328,16 +340,16 @@ export async function saveAlertSettings(input: Partial<AlertSettings>) {
 	const [existing] = await db
 		.select({ key: settings.key })
 		.from(settings)
-		.where(eq(settings.key, ALERT_SETTINGS_KEY))
+		.where(eq(settings.key, SETTINGS_KEYS.alerts))
 		.limit(1);
 
 	if (existing) {
 		await db
 			.update(settings)
 			.set({ value: serialized })
-			.where(eq(settings.key, ALERT_SETTINGS_KEY));
+			.where(eq(settings.key, SETTINGS_KEYS.alerts));
 	} else {
-		await db.insert(settings).values({ key: ALERT_SETTINGS_KEY, value: serialized });
+		await db.insert(settings).values({ key: SETTINGS_KEYS.alerts, value: serialized });
 	}
 
 	return next;

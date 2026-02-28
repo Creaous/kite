@@ -1,10 +1,6 @@
-/*
- * This file is a messy hacky workaround but I am too tired to keep messing with this for another 2 hours...
- */
-
 import { PGlite } from '@electric-sql/pglite';
-import { drizzle } from 'drizzle-orm/pglite';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/pglite';
 import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
 
 vi.mock('../db', async () => {

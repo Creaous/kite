@@ -1,8 +1,9 @@
-import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
-import { createShareRequest, listShareRequests } from '$lib/server/services/shareRequest';
-import { forbiddenResponse, requireAuthenticatedUser } from '$lib/server/http-auth';
+import type { RequestHandler } from './$types';
+
 import { auth } from '$lib/server/auth';
+import { forbiddenResponse, requireAuthenticatedUser } from '$lib/server/http-auth';
+import { createShareRequest, listShareRequests } from '$lib/server/services/shareRequest';
 
 /**
  * @openapi

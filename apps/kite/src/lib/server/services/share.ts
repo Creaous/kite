@@ -1,12 +1,13 @@
-import { db } from '../db';
-import { shares, shareUpload } from '../db/schema';
-import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
-import argon2 from '@node-rs/argon2';
-import { uploads } from '../db/schema';
-import { generateDownloadToken } from './token';
 import { promises as fs } from 'node:fs';
 import { randomInt } from 'node:crypto';
+
+import argon2 from '@node-rs/argon2';
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { zipSync } from 'fflate';
+
+import { db } from '../db';
+import { shares, shareUpload, uploads } from '../db/schema';
+import { generateDownloadToken } from './token';
 
 export type CreateShareDTO = {
 	title?: string | null;

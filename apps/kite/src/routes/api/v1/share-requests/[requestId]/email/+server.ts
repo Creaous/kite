@@ -1,5 +1,6 @@
-import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+
 import { auth } from '$lib/server/auth';
 import { forbiddenResponse, requireAuthenticatedUser } from '$lib/server/http-auth';
 import { getShareRequestById } from '$lib/server/services/shareRequest';

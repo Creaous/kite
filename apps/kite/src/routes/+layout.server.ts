@@ -1,12 +1,13 @@
 import { redirect } from '@sveltejs/kit';
+
+import type { LayoutServerLoad } from './$types';
+import { isAnonymousEnabled, isEmailAndPasswordEnabled } from '$lib/server/auth';
+import { getConfiguredSocialProvidersFromEnv } from '$lib/server/auth-providers';
 import {
 	getAlertSettings,
 	getAuthSettings,
 	getBrandingSettings
 } from '$lib/server/services/settings';
-import { getConfiguredSocialProvidersFromEnv } from '$lib/server/auth-providers';
-import { isAnonymousEnabled, isEmailAndPasswordEnabled } from '$lib/server/auth';
-import type { LayoutServerLoad } from './$types';
 
 function isPublicPath(pathname: string) {
 	if (pathname === '/sign-in' || pathname === '/sign-up') return true;

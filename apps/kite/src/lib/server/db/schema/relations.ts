@@ -33,9 +33,6 @@ export const otherRelations = defineRelationsPart(
 				to: [r.user.id]
 			})
 		},
-		tokenStore: {
-			// token_store has no direct user FK in this schema
-		},
 		auditLog: {
 			actor: r.one.user({
 				from: [r.auditLog.actorId],

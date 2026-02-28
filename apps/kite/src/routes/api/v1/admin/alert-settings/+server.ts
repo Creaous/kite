@@ -1,7 +1,8 @@
-import { requireAdminUser } from '$lib/server/http-auth';
-import { getAlertSettings, saveAlertSettings } from '$lib/server/services/settings';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+
+import { requireAdminUser } from '$lib/server/http-auth';
+import { getAlertSettings, saveAlertSettings } from '$lib/server/services/settings';
 
 type AlertType = 'info' | 'success' | 'warning' | 'error';
 

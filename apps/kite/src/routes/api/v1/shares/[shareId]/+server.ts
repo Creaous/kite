@@ -1,8 +1,9 @@
-import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
-import { getShare, softDeleteShare, updateShare } from '$lib/server/services/share';
+import type { RequestHandler } from './$types';
+
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
+import { getShare, softDeleteShare, updateShare } from '$lib/server/services/share';
 
 /**
  * @openapi

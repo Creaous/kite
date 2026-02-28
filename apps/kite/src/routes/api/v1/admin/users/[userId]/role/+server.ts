@@ -1,7 +1,8 @@
-import { auth } from '$lib/server/auth';
-import { requireAdminUser } from '$lib/server/http-auth';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+
+import { auth } from '$lib/server/auth';
+import { requireAdminUser } from '$lib/server/http-auth';
 
 const allowedRoles = new Set(['admin', 'user', 'trusted']);
 

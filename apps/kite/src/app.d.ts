@@ -17,10 +17,6 @@ declare global {
 		interface Error {
 			code?: string;
 		}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
 	}
 }
 

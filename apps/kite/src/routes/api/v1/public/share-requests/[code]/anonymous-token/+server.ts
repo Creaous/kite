@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getShareRequestByCode } from '$lib/server/services/shareRequest';
-import { encodeToken, generateLimitedAnonymousToken } from '$lib/server/services/token';
+
 import { includesInternalError } from '$lib/server/api-errors';
 import { getConfiguredSocialProvidersFromEnv } from '$lib/server/auth-providers';
 import { getAuthSettings } from '$lib/server/services/settings';
+import { getShareRequestByCode } from '$lib/server/services/shareRequest';
+import { encodeToken, generateLimitedAnonymousToken } from '$lib/server/services/token';
 
 /**
  * @openapi

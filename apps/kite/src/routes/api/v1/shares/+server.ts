@@ -1,8 +1,9 @@
-import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
-import { createShare, listShares } from '$lib/server/services/share';
+import type { RequestHandler } from './$types';
+
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
+import { createShare, listShares } from '$lib/server/services/share';
 
 const MAX_UPLOADS_PER_SHARE = 200;
 

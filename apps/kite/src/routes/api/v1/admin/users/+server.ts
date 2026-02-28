@@ -1,8 +1,9 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+
 import { auth } from '$lib/server/auth';
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAdminUser } from '$lib/server/http-auth';
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals, request, url }) => {
 	const unauthorized = requireAdminUser(locals);

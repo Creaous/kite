@@ -1,7 +1,8 @@
-import { requireAdminUser } from '$lib/server/http-auth';
-import { getBrandingSettings, saveBrandingSettings } from '$lib/server/services/settings';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+
+import { requireAdminUser } from '$lib/server/http-auth';
+import { getBrandingSettings, saveBrandingSettings } from '$lib/server/services/settings';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const unauthorized = requireAdminUser(locals);

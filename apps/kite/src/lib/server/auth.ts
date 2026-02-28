@@ -1,20 +1,20 @@
 import 'dotenv/config';
 
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { passkey } from '@better-auth/passkey';
+import { APIError, type BetterAuthPlugin, betterAuth } from 'better-auth';
+import { createAuthMiddleware } from 'better-auth/api';
+import { admin as adminPlugin, anonymous } from 'better-auth/plugins';
+import { eq } from 'drizzle-orm';
+
 import { resolveAuthPluginIds, toOrderedAuthPluginIds, type AuthPluginId } from '$lib/auth/plugins';
 import {
 	getConfiguredSocialProvidersFromEnv,
 	type SupportedSocialProviderId
 } from '$lib/server/auth-providers';
 import { db } from '$lib/server/db';
-import { drizzleAdapter } from '@better-auth/drizzle-adapter';
-import { passkey } from '@better-auth/passkey';
-import { APIError, type BetterAuthPlugin, betterAuth } from 'better-auth';
-import { admin as adminPlugin, anonymous } from 'better-auth/plugins';
-import { eq } from 'drizzle-orm';
-
 import { ac, admin, trusted, user } from '../permissions';
 import * as schemas from './db/schema';
-import { createAuthMiddleware } from 'better-auth/api';
 import { getAuthSettings } from './services/settings';
 import { consumeToken, decodeToken, verifyToken } from './services/token';
 
@@ -26,6 +26,19 @@ export const isEmailAndPasswordEnabled = process.env.ALLOW_EMAIL_AND_PASSWORD !=
 export const isAnonymousEnabled = process.env.ALLOW_ANONYMOUS_USERS === 'true';
 export const isPasskeyEnabled = process.env.ALLOW_PASSKEYS !== 'false';
 export const isInitialSetupEnabled = process.env.ENABLE_INITIAL_SETUP !== 'false';
+
+const origin = process.env.ORIGIN;
+const authSecret = process.env.BETTER_AUTH_SECRET;
+
+if (process.env.NODE_ENV === 'production') {
+	if (!origin) {
+		throw new Error('ORIGIN must be configured in production');
+	}
+
+	if (!authSecret || authSecret === 'default-build-secret') {
+		throw new Error('BETTER_AUTH_SECRET must be configured in production');
+	}
+}
 
 const { providers: socialProviders, configuredProviderIds } = getConfiguredSocialProvidersFromEnv();
 
@@ -84,7 +97,7 @@ export function getAvailableSocialProviders() {
  * Better Auth instance configured with database adapter and plugins
  */
 export const auth = betterAuth({
-	baseURL: process.env.ORIGIN,
+	baseURL: origin,
 	database: drizzleAdapter(db, {
 		provider: 'pg',
 		schema
@@ -96,7 +109,7 @@ export const auth = betterAuth({
 	advanced: {
 		disableOriginCheck: process.env.NODE_ENV === 'development' ? true : false
 	},
-	secret: process.env.BETTER_AUTH_SECRET || 'default-build-secret',
+	secret: authSecret ?? 'default-build-secret',
 	socialProviders,
 	plugins,
 	hooks: {

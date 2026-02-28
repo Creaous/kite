@@ -1,13 +1,13 @@
 import {
-	boolean,
-	uuid,
 	bigint,
+	boolean,
 	index,
 	integer,
 	pgEnum,
 	pgTable,
 	text,
-	timestamp
+	timestamp,
+	uuid
 } from 'drizzle-orm/pg-core';
 
 import { user } from './auth';

@@ -1,11 +1,12 @@
+import { json } from '@sveltejs/kit';
+
+import { isAnonymousEnabled, isEmailAndPasswordEnabled } from '$lib/server/auth';
 import {
 	getConfiguredSocialProvidersFromEnv,
 	type SupportedSocialProviderId
 } from '$lib/server/auth-providers';
 import { requireAdminUser } from '$lib/server/http-auth';
-import { isAnonymousEnabled, isEmailAndPasswordEnabled } from '$lib/server/auth';
 import { getAuthSettings, saveAuthSettings } from '$lib/server/services/settings';
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {

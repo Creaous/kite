@@ -1,7 +1,8 @@
-import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
-import { generateToken } from '$lib/server/services/token';
+import type { RequestHandler } from './$types';
+
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
+import { generateToken } from '$lib/server/services/token';
 
 /**
  * @openapi

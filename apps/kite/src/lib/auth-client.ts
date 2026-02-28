@@ -1,8 +1,9 @@
-import { resolveAuthPluginIds } from '$lib/auth/plugins';
-import { ac, admin, trusted, user } from '$lib/permissions';
 import { passkeyClient } from '@better-auth/passkey/client';
 import { adminClient, anonymousClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/svelte';
+
+import { resolveAuthPluginIds } from '$lib/auth/plugins';
+import { ac, admin, trusted, user } from '$lib/permissions';
 
 const isAnonymousEnabled = import.meta.env.PUBLIC_ALLOW_ANONYMOUS_USERS === 'true';
 const isPasskeyEnabled = import.meta.env.PUBLIC_ALLOW_PASSKEYS !== 'false';

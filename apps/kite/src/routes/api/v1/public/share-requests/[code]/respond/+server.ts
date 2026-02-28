@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { respondToRequest } from '$lib/server/services/shareRequest';
+
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser, unauthorizedResponse } from '$lib/server/http-auth';
+import { respondToRequest } from '$lib/server/services/shareRequest';
 
 const MAX_UPLOADS_PER_RESPONSE = 200;
 

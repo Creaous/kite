@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getPublicShareByCode } from '$lib/server/services/share';
+
 import { includesInternalError } from '$lib/server/api-errors';
+import { getPublicShareByCode } from '$lib/server/services/share';
 
 /**
  * @openapi
