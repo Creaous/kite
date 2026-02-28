@@ -20,9 +20,6 @@ importers:
 
   apps/kite:
     dependencies:
-      '@better-auth/drizzle-adapter':
-        specifier: https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@6913
-        version: https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@6913(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(better-auth@1.5.0-beta.13(27f68ecc8df015938e155284be5b88b9))(drizzle-kit@1.0.0-beta.15-859cf75)(drizzle-orm@1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6))(prettier@3.8.1)
       '@node-rs/argon2':
         specifier: ^2.0.2
         version: 2.0.2
@@ -51,6 +48,9 @@ importers:
         specifier: ^8.19.0
         version: 8.19.0
     devDependencies:
+      '@better-auth/drizzle-adapter':
+        specifier: 1.5.0-beta.9
+        version: 1.5.0-beta.9(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(@better-auth/utils@0.3.1)(drizzle-orm@1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6))
       '@better-auth/passkey':
         specifier: 1.5.0-beta.13
         version: 1.5.0-beta.13(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-auth@1.5.0-beta.13(27f68ecc8df015938e155284be5b88b9))(better-call@1.2.1(zod@4.3.6))(nanostores@1.1.1)
@@ -369,15 +369,12 @@ packages:
       '@better-auth/utils': ^0.3.0
       drizzle-orm: '>=0.41.0'
 
-  '@better-auth/drizzle-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@6913':
-    resolution: {tarball: https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@6913}
-    version: 1.4.8-beta.4
+  '@better-auth/drizzle-adapter@1.5.0-beta.9':
+    resolution: {integrity: sha512-X8spDpjXwAFEJgKVYrKk1KRjHr+lT9uhYKbanN5sik+ozFyS7OP4cUczvP4+DaqM69HNUZ3pFE67ZIt6sfKErQ==}
     peerDependencies:
-      '@better-auth/core': 1.5.0-beta.2
-      better-auth: 1.5.0-beta.2
-      drizzle-kit: 1.0.0-beta.8-734e789
-      drizzle-orm: 1.0.0-beta.8-734e789
-      prettier: ^3.7.4
+      '@better-auth/core': 1.5.0-beta.9
+      '@better-auth/utils': ^0.3.0
+      drizzle-orm: ^0.30.0
 
   '@better-auth/kysely-adapter@1.5.0-beta.13':
     resolution: {integrity: sha512-1Ek0jV/FiFUEcTkoPkf4MWNR3k6b5t1mLBanJVjvSD+UhAXhe93H8onEKlRcSopNu2ls6z70BI75jYBxYSdf5Q==}
@@ -5430,13 +5427,11 @@ snapshots:
       '@better-auth/utils': 0.3.1
       drizzle-orm: 1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6)
 
-  '@better-auth/drizzle-adapter@https://pkg.pr.new/better-auth/better-auth/@better-auth/drizzle-adapter@6913(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(better-auth@1.5.0-beta.13(27f68ecc8df015938e155284be5b88b9))(drizzle-kit@1.0.0-beta.15-859cf75)(drizzle-orm@1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6))(prettier@3.8.1)':
+  '@better-auth/drizzle-adapter@1.5.0-beta.9(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(@better-auth/utils@0.3.1)(drizzle-orm@1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6))':
     dependencies:
       '@better-auth/core': 1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1)
-      better-auth: 1.5.0-beta.13(27f68ecc8df015938e155284be5b88b9)
-      drizzle-kit: 1.0.0-beta.15-859cf75
+      '@better-auth/utils': 0.3.1
       drizzle-orm: 1.0.0-beta.15-859cf75(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.1(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3))(@types/mssql@9.1.9(@azure/core-client@1.10.1))(@types/pg@8.16.0)(mssql@11.0.1(@azure/core-client@1.10.1))(mysql2@3.15.3)(pg@8.19.0)(postgres@3.4.7)(prisma@7.4.1(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6)
-      prettier: 3.8.1
 
   '@better-auth/kysely-adapter@1.5.0-beta.13(@better-auth/core@1.5.0-beta.13(@better-auth/utils@0.3.1)(@better-fetch/fetch@1.1.21)(better-call@1.2.1(zod@4.3.6))(jose@6.1.3)(kysely@0.28.11)(nanostores@1.1.1))(@better-auth/utils@0.3.1)(kysely@0.28.11)':
     dependencies:
