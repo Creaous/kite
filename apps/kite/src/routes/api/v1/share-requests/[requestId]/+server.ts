@@ -44,10 +44,18 @@ import { requireAuthenticatedUser } from '$lib/server/http-auth';
  *                     nullable: true
  *               hideRequesterEmail:
  *                 type: boolean
+ *               password:
+ *                 type: string
+ *                 nullable: true
+ *               clearPassword:
+ *                 type: boolean
  *               expiresAt:
  *                 type: string
  *                 format: date-time
  *                 nullable: true
+ *               maxSubmissions:
+ *                 type: number
+ *                 minimum: 1
  *               status:
  *                 type: string
  *                 enum: [open, fulfilled, expired, deleted]
@@ -106,6 +114,9 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 						: undefined,
 			hideRequesterEmail:
 				typeof body?.hideRequesterEmail === 'boolean' ? body.hideRequesterEmail : undefined,
+			password: typeof body?.password === 'string' ? body.password : undefined,
+			clearPassword: typeof body?.clearPassword === 'boolean' ? body.clearPassword : undefined,
+			maxSubmissions: typeof body?.maxSubmissions === 'number' ? body.maxSubmissions : undefined,
 			expiresAt:
 				body?.expiresAt !== undefined
 					? body.expiresAt

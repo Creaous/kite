@@ -19,6 +19,8 @@
 		downloadCount: number;
 		viewCount: number;
 		uploadCount: number;
+		sourceRequestId: string | null;
+		sourceRequestCode: string | null;
 		createdAt: string;
 	};
 
@@ -37,6 +39,8 @@
 	let editMaxDownloads = $state(0);
 	let editExpiresAt = $state('');
 	let editPassword = $state('');
+	let editPasswordProtected = $state(false);
+	let editClearPassword = $state(false);
 
 	function getDialog(id: string) {
 		const dialog = document.getElementById(id);
@@ -58,6 +62,8 @@
 		editMaxDownloads = share.maxDownloads ?? 0;
 		editExpiresAt = share.expiresAt ? toLocalDateTimeInput(share.expiresAt) : '';
 		editPassword = '';
+		editPasswordProtected = share.passwordProtected;
+		editClearPassword = false;
 		getDialog(EDIT_DIALOG_ID)?.showModal();
 	}
 
@@ -112,6 +118,11 @@
 					<div class="flex items-start justify-between gap-2">
 						<h2 class="card-title text-base">{share.title || m.share_untitled()}</h2>
 						<div>
+							{#if share.sourceRequestId}
+								<span class="mr-1 badge badge-outline badge-info">Request Submission</span>
+							{:else}
+								<span class="mr-1 badge badge-outline">Direct Share</span>
+							{/if}
 							{#if share.passwordProtected}
 								<span
 									class="badge badge-outline badge-warning"
@@ -131,6 +142,11 @@
 
 					<div class="text-sm text-base-content/80">
 						<p>{m.common_code()}: <span class="font-mono">{share.code}</span></p>
+						{#if share.sourceRequestCode}
+							<p>
+								Source request: <span class="font-mono">{share.sourceRequestCode}</span>
+							</p>
+						{/if}
 						<p>{m.common_files()}: {share.uploadCount}</p>
 						{#if share.message}
 							<p class="line-clamp-2">{m.common_message()}: {share.message}</p>
@@ -150,6 +166,16 @@
 							<Icon icon="mdi:open-in-new" class="h-4 w-4" />
 							{m.action_open()}
 						</a>
+						{#if share.sourceRequestCode}
+							<a
+								class="btn btn-ghost btn-sm"
+								href={resolve(`/r/${share.sourceRequestCode}`)}
+								target="_blank"
+							>
+								<Icon icon="mdi:file-document-outline" class="h-4 w-4" />
+								Open request
+							</a>
+						{/if}
 						<button
 							class="btn btn-ghost btn-sm"
 							onclick={() => copyShareLink(share.code)}
@@ -187,16 +213,16 @@
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data?.success) {
 						successMessage = m.share_update_success();
+						errorMessage = '';
 						shares = shares.map((share) =>
 							share.id === actionId ? (result.data?.data as ShareListItem) : share
 						);
+						getDialog(EDIT_DIALOG_ID)?.close();
+						return;
 					}
 
-					if ('data' in result) {
-						const error = result.data?.errorMessage;
-						if (!error) getDialog(EDIT_DIALOG_ID)?.close();
-						errorMessage = error ?? m.share_update_failed();
-					}
+					const error = 'data' in result ? result.data?.errorMessage : null;
+					errorMessage = error ?? m.share_update_failed();
 				};
 			}}
 		>
@@ -258,9 +284,26 @@
 						name="password"
 						bind:value={editPassword}
 						type="text"
+						oninput={() => {
+							if (editPassword.trim().length > 0) {
+								editClearPassword = false;
+							}
+						}}
 						placeholder={m.share_new_password_placeholder()}
 					/>
 				</fieldset>
+				{#if editPasswordProtected}
+					<label class="label cursor-pointer justify-start gap-3">
+						<input
+							class="checkbox checkbox-sm"
+							type="checkbox"
+							name="clearPassword"
+							bind:checked={editClearPassword}
+							disabled={editPassword.trim().length > 0}
+						/>
+						<span class="label-text">Clear existing password</span>
+					</label>
+				{/if}
 			</div>
 			<div class="modal-action">
 				<button class="btn btn-primary" type="submit">{m.action_save()}</button>
@@ -289,14 +332,14 @@
 					return async ({ result }) => {
 						if (result.type === 'success' && result.data?.success) {
 							successMessage = m.share_delete_success();
+							errorMessage = '';
 							shares = shares.filter((share) => share.id !== actionId);
+							getDialog(DELETE_DIALOG_ID)?.close();
+							return;
 						}
 
-						if ('data' in result) {
-							const error = result.data?.errorMessage;
-							if (!error) getDialog(DELETE_DIALOG_ID)?.close();
-							errorMessage = error ?? m.share_delete_failed();
-						}
+						const error = 'data' in result ? result.data?.errorMessage : null;
+						errorMessage = error ?? m.share_delete_failed();
 					};
 				}}
 			>

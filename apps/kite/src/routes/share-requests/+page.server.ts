@@ -45,6 +45,9 @@ async function createOrEdit(event: RequestEvent, create: boolean) {
 	// this sucks, why is this "on" instead of true?
 	// who was the genius behind deciding this?
 	const hideRequesterEmail = data.get('hideRequesterEmail') === 'on';
+	const password = data.get('password') ?? undefined;
+	const clearPassword = data.get('clearPassword') === 'on';
+	const maxSubmissions = data.get('maxSubmissions') ?? undefined;
 	const expiresAt = data.get('expiresAt') ?? undefined;
 
 	if (!create && !id) return fail(400);
@@ -62,6 +65,9 @@ async function createOrEdit(event: RequestEvent, create: boolean) {
 					email: requesterEmail
 				},
 				hideRequesterEmail,
+				password: typeof password === 'string' && password.trim().length > 0 ? password : undefined,
+				clearPassword,
+				maxSubmissions: maxSubmissions ? Number(maxSubmissions) : undefined,
 				expiresAt: expiresAt ? toIsoDateTime(expiresAt.toString()) : undefined
 			})
 		}

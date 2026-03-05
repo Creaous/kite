@@ -28,6 +28,10 @@ export const actions = {
 		const maxDownloads = data.get('maxDownloads') ?? undefined;
 		const expiresAt = data.get('expiresAt') ?? undefined;
 		const password = data.get('password') ?? undefined;
+		const clearPassword = data.get('clearPassword') === 'on';
+
+		const passwordValue =
+			typeof password === 'string' && password.trim().length > 0 ? password : undefined;
 
 		const response = await event.fetch(`/api/v1/shares/${id}`, {
 			method: 'PATCH',
@@ -38,7 +42,8 @@ export const actions = {
 				hideMessageBehindPassword,
 				maxDownloads,
 				expiresAt: expiresAt ? toIsoDateTime(expiresAt.toString()) : undefined,
-				password
+				password: passwordValue,
+				clearPassword
 			})
 		});
 

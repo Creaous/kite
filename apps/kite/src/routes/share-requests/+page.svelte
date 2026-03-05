@@ -20,9 +20,22 @@
 		requesterName: string | null;
 		requesterEmail: string | null;
 		hideRequesterEmail: boolean;
+		passwordProtected: boolean;
+		maxSubmissions: number;
+		submissionCount: number;
 		expiresAt: string | null;
 		status: string;
 		createdAt: string;
+	};
+
+	type SubmissionItem = {
+		id: string;
+		code: string;
+		title: string | null;
+		status: string;
+		expiresAt: string | null;
+		createdAt: string;
+		uploadCount: number;
 	};
 
 	let activeTab = $state<'create' | 'manage'>('create');
@@ -38,6 +51,8 @@
 	let requesterName = $state('');
 	let requesterEmail = $state('');
 	let hideRequesterEmail = $state(false);
+	let responsePassword = $state('');
+	let maxSubmissions = $state(1);
 	let expiresAt = $state('');
 
 	let canCreateRequests = $derived(data.canCreateShareRequest);
@@ -47,13 +62,22 @@
 	const EDIT_DIALOG_ID = 'request-edit-dialog';
 	const DELETE_DIALOG_ID = 'request-delete-dialog';
 	const EMAIL_DIALOG_ID = 'request-email-dialog';
+	const SUBMISSIONS_DIALOG_ID = 'request-submissions-dialog';
 
 	let editTitle = $state('');
 	let editMessage = $state('');
 	let editRequesterName = $state('');
 	let editRequesterEmail = $state('');
+	let editResponsePassword = $state('');
+	let editPasswordProtected = $state(false);
+	let editClearPassword = $state(false);
+	let editMaxSubmissions = $state(1);
 	let editExpiresAt = $state('');
 	let editHideRequesterEmail = $state(false);
+
+	let submissions = $state<SubmissionItem[]>([]);
+	let loadingSubmissions = $state(false);
+	let submissionsError = $state('');
 
 	type RecipientDraft = {
 		name: string;
@@ -91,9 +115,34 @@
 		editMessage = request.message ?? '';
 		editRequesterName = request.requesterName ?? '';
 		editRequesterEmail = request.requesterEmail ?? '';
+		editResponsePassword = '';
+		editPasswordProtected = Boolean(request.passwordProtected);
+		editClearPassword = false;
+		editMaxSubmissions = Number(request.maxSubmissions ?? 1);
 		editHideRequesterEmail = Boolean(request.hideRequesterEmail);
 		editExpiresAt = request.expiresAt ? new Date(request.expiresAt).toISOString().slice(0, 16) : '';
 		getDialog(EDIT_DIALOG_ID)?.showModal();
+	}
+
+	async function openSubmissionsModal(request: ShareRequestItem) {
+		actionId = request.id ?? '';
+		requestCode = request.code ?? '';
+		submissions = [];
+		submissionsError = '';
+		loadingSubmissions = true;
+		getDialog(SUBMISSIONS_DIALOG_ID)?.showModal();
+
+		const response = await fetch(`/api/v1/share-requests/${request.id}/submissions`);
+		const body = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			submissionsError = body?.error?.message ?? 'Failed to load submissions.';
+			loadingSubmissions = false;
+			return;
+		}
+
+		submissions = Array.isArray(body?.data) ? body.data : [];
+		loadingSubmissions = false;
 	}
 
 	function openDeleteModal(request: ShareRequestItem) {
@@ -207,6 +256,7 @@
 						if (result.type === 'success' && result.data?.success) {
 							const data = result.data?.data as ShareRequestItem;
 							successMessage = m.request_created_code({ code: data.code });
+							errorMessage = '';
 							shareRequests.unshift(data);
 							requestCode = data.code;
 							// clear
@@ -215,13 +265,14 @@
 							requesterName = getDefaultRequesterName();
 							requesterEmail = getDefaultRequesterEmail();
 							hideRequesterEmail = false;
+							responsePassword = '';
+							maxSubmissions = 1;
 							expiresAt = '';
+							return;
 						}
 
-						if ('data' in result) {
-							const error = result.data?.errorMessage;
-							errorMessage = error ?? m.request_create_failed();
-						}
+						const error = 'data' in result ? result.data?.errorMessage : null;
+						errorMessage = error ?? m.request_create_failed();
 					};
 				}}
 			>
@@ -282,6 +333,28 @@
 						</label>
 					</fieldset>
 					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">Submission limit</legend>
+						<input
+							class="input-bordered input w-full"
+							name="maxSubmissions"
+							bind:value={maxSubmissions}
+							type="number"
+							min="1"
+							step="1"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">Password for generated shares (optional)</legend>
+						<input
+							class="input-bordered input w-full"
+							name="password"
+							bind:value={responsePassword}
+							type="text"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
 						<legend class="fieldset-legend">{m.request_expires_optional()}</legend>
 						<input
 							class="input-bordered input w-full"
@@ -312,7 +385,7 @@
 			{#if loadingRequests}
 				<span class="loading loading-md loading-spinner"></span>
 			{:else if shareRequests.length === 0}
-				<p>{m.request_empty_open()}</p>
+				<p>No requests yet.</p>
 			{:else}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each shareRequests as request (request.id)}
@@ -327,6 +400,7 @@
 								{/if}
 								<div class="text-xs text-base-content/70">
 									<p>{m.common_status()}: {request.status}</p>
+									<p>Submissions: {request.submissionCount ?? 0} / {request.maxSubmissions ?? 1}</p>
 									<p>
 										{m.common_expires()}: {request.expiresAt
 											? new Date(request.expiresAt).toLocaleString()
@@ -360,6 +434,14 @@
 											{m.form_email()}
 										</button>
 									{/if}
+									<button
+										class="btn btn-ghost btn-sm"
+										onclick={() => openSubmissionsModal(request)}
+										type="button"
+									>
+										<Icon icon="mdi:inbox-arrow-down-outline" class="h-4 w-4" />
+										Submissions
+									</button>
 									<button
 										class="btn btn-ghost btn-sm"
 										onclick={() => openEditModal(request)}
@@ -397,16 +479,16 @@
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data?.success) {
 						successMessage = m.request_update_success();
+						errorMessage = '';
 						shareRequests = shareRequests.map((shareRequest) =>
 							shareRequest.id === actionId ? (result.data?.data as ShareRequestItem) : shareRequest
 						);
+						getDialog(EDIT_DIALOG_ID)?.close();
+						return;
 					}
 
-					if ('data' in result) {
-						const error = result.data?.errorMessage;
-						if (!error) getDialog(EDIT_DIALOG_ID)?.close();
-						errorMessage = error ?? m.request_update_failed();
-					}
+					const error = 'data' in result ? result.data?.errorMessage : null;
+					errorMessage = error ?? m.request_update_failed();
 				};
 			}}
 		>
@@ -447,6 +529,43 @@
 						type="email"
 					/>
 				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Submission limit</legend>
+					<input
+						class="input-bordered input w-full"
+						name="maxSubmissions"
+						bind:value={editMaxSubmissions}
+						type="number"
+						min="1"
+						step="1"
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Set new generated-share password</legend>
+					<input
+						class="input-bordered input w-full"
+						name="password"
+						bind:value={editResponsePassword}
+						type="text"
+						oninput={() => {
+							if (editResponsePassword.trim().length > 0) {
+								editClearPassword = false;
+							}
+						}}
+					/>
+				</fieldset>
+				{#if editPasswordProtected}
+					<label class="label cursor-pointer justify-start gap-2">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							name="clearPassword"
+							bind:checked={editClearPassword}
+							disabled={editResponsePassword.trim().length > 0}
+						/>
+						<span class="label-text">Clear existing generated-share password</span>
+					</label>
+				{/if}
 				<label class="label cursor-pointer justify-start gap-2">
 					<input
 						type="checkbox"
@@ -493,14 +612,14 @@
 					return async ({ result }) => {
 						if (result.type === 'success' && result.data?.success) {
 							successMessage = m.request_delete_success();
+							errorMessage = '';
 							shareRequests = shareRequests.filter((shareRequest) => shareRequest.id !== actionId);
+							getDialog(DELETE_DIALOG_ID)?.close();
+							return;
 						}
 
-						if ('data' in result) {
-							const error = result.data?.errorMessage;
-							if (!error) getDialog(DELETE_DIALOG_ID)?.close();
-							errorMessage = error ?? m.request_delete_failed();
-						}
+						const error = 'data' in result ? result.data?.errorMessage : null;
+						errorMessage = error ?? m.request_delete_failed();
 					};
 				}}
 			>
@@ -580,13 +699,13 @@
 						return async ({ result }) => {
 							if (result.type === 'success' && result.data?.success) {
 								successMessage = m.request_email_sent_count({ count: recipients.length });
+								errorMessage = '';
+								getDialog(EMAIL_DIALOG_ID)?.close();
+								return;
 							}
 
-							if ('data' in result) {
-								const error = result.data?.errorMessage;
-								if (!error) getDialog(EMAIL_DIALOG_ID)?.close();
-								errorMessage = error ?? m.request_email_send_failed();
-							}
+							const error = 'data' in result ? result.data?.errorMessage : null;
+							errorMessage = error ?? m.request_email_send_failed();
 						};
 					}}
 				>
@@ -603,3 +722,46 @@
 		</div>
 	</dialog>
 {/if}
+
+<dialog id={SUBMISSIONS_DIALOG_ID} class="modal">
+	<div class="modal-box">
+		<h3 class="text-lg font-semibold">Submissions for {requestCode}</h3>
+		{#if loadingSubmissions}
+			<div class="py-4">
+				<span class="loading loading-md loading-spinner"></span>
+			</div>
+		{:else if submissionsError}
+			<div role="alert" class="mt-3 alert alert-error"><span>{submissionsError}</span></div>
+		{:else if submissions.length === 0}
+			<p class="py-4 text-sm text-base-content/70">No submissions yet.</p>
+		{:else}
+			<div class="mt-4 space-y-2">
+				{#each submissions as submission (submission.id)}
+					<div class="rounded-lg border border-base-300 p-3">
+						<div class="flex items-center justify-between gap-2">
+							<p class="text-sm font-medium">{submission.title || 'Untitled submission'}</p>
+							<a
+								class="btn btn-outline btn-xs"
+								href={resolve(`/s/${submission.code}`)}
+								target="_blank">Open</a
+							>
+						</div>
+						<p class="mt-1 text-xs text-base-content/70">
+							Code: <span class="font-mono">{submission.code}</span>
+						</p>
+						<p class="text-xs text-base-content/70">Status: {submission.status}</p>
+						<p class="text-xs text-base-content/70">Files: {submission.uploadCount}</p>
+						<p class="text-xs text-base-content/70">
+							Created: {new Date(submission.createdAt).toLocaleString()}
+						</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		<div class="modal-action">
+			<button class="btn" type="button" onclick={() => getDialog(SUBMISSIONS_DIALOG_ID)?.close()}
+				>{m.action_cancel()}</button
+			>
+		</div>
+	</div>
+</dialog>

@@ -93,11 +93,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const status =
 			includesInternalError(err, 'not found') || includesInternalError(err, 'not open')
 				? 404
-				: includesInternalError(err, 'no uploads provided')
-					? 400
-					: includesInternalError(err, 'forbidden')
-						? 403
-						: 500;
+				: includesInternalError(err, 'limit reached')
+					? 409
+					: includesInternalError(err, 'no uploads provided')
+						? 400
+						: includesInternalError(err, 'forbidden')
+							? 403
+							: 500;
 		return json(
 			{
 				error: {
