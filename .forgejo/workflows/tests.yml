@@ -37,5 +37,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint workspace (also builds emails)
+        run: pnpm lint
+
       - name: Run unit tests
         run: pnpm --filter kite run test:unit -- --run
