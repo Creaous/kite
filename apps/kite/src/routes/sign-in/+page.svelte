@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import Icon from '@iconify/svelte';
-	import { authClient } from '$lib/auth-client';
 	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
@@ -21,60 +20,6 @@
 	let errorMessage = $state('');
 	let isSubmitting = $state(false);
 	let socialSubmitting = $state<SocialProviderId | null>(null);
-	type NextPath =
-		| '/'
-		| '/admin'
-		| '/share-requests'
-		| '/shares'
-		| '/sign-in'
-		| '/sign-up'
-		| `/r/${string}`
-		| `/s/${string}`;
-
-	function getNextPath(): NextPath {
-		const next = page.url.searchParams.get('next');
-		if (!next || !next.startsWith('/') || next.startsWith('//')) return '/';
-
-		if (next.startsWith('/r/') || next.startsWith('/s/')) {
-			return next as NextPath;
-		}
-
-		switch (next) {
-			case '/':
-			case '/admin':
-			case '/share-requests':
-			case '/shares':
-			case '/sign-in':
-			case '/sign-up':
-				return next;
-			default:
-				return '/';
-		}
-	}
-
-	async function signIn() {
-		errorMessage = '';
-		isSubmitting = true;
-
-		try {
-			const result = await authClient.signIn.email({
-				email,
-				password,
-				rememberMe: true
-			});
-
-			if (result.error) {
-				errorMessage = result.error.message ?? m.auth_unable_sign_in();
-				return;
-			}
-
-			await goto(resolve(getNextPath()));
-		} catch {
-			errorMessage = m.auth_unable_sign_in();
-		} finally {
-			isSubmitting = false;
-		}
-	}
 
 	function getEnabledSocialProviders(): SocialProviderId[] {
 		const configured = data?.authSettings?.enabledSocialProviders;
@@ -103,28 +48,6 @@
 				return m.auth_provider_microsoft();
 		}
 	}
-
-	async function signInSocial(provider: SocialProviderId) {
-		errorMessage = '';
-		socialSubmitting = provider;
-
-		try {
-			const result = await authClient.signIn.social({
-				provider,
-				callbackURL: getNextPath(),
-				requestSignUp: Boolean(data?.authSettings?.registrationEnabled)
-			});
-
-			if (result.error) {
-				errorMessage = result.error.message ?? m.auth_unable_social_sign_in();
-				return;
-			}
-		} catch {
-			errorMessage = m.auth_unable_social_sign_in();
-		} finally {
-			socialSubmitting = null;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -145,46 +68,91 @@
 				</div>
 			{/if}
 
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_email()}</legend>
-				<input
-					class="input-bordered input w-full"
-					type="email"
-					bind:value={email}
-					autocomplete="email"
-				/>
-			</fieldset>
+			<form
+				method="POST"
+				action="?/email"
+				use:enhance={() => {
+					errorMessage = '';
+					isSubmitting = true;
+					return async ({ result, update }) => {
+						await update();
+						if (result.type === 'failure') {
+							const actionError = (result.data as { errorMessage?: string } | undefined)
+								?.errorMessage;
+							errorMessage = actionError ?? m.auth_unable_sign_in();
+						}
+						isSubmitting = false;
+					};
+				}}
+			>
+				<input type="hidden" name="next" value={data.next} />
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_email()}</legend>
+					<input
+						class="input-bordered input w-full"
+						type="email"
+						name="email"
+						bind:value={email}
+						autocomplete="email"
+					/>
+				</fieldset>
 
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_password()}</legend>
-				<input
-					class="input-bordered input w-full"
-					type="password"
-					bind:value={password}
-					autocomplete="current-password"
-				/>
-			</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_password()}</legend>
+					<input
+						class="input-bordered input w-full"
+						type="password"
+						name="password"
+						bind:value={password}
+						autocomplete="current-password"
+					/>
+				</fieldset>
 
-			<button class="btn btn-primary" type="button" onclick={signIn} disabled={isSubmitting}>
-				<Icon icon="mdi:login" class="h-4 w-4" />
-				{isSubmitting ? m.auth_signing_in() : m.auth_sign_in()}
-			</button>
+				<button class="btn btn-primary" type="submit" disabled={isSubmitting}>
+					<Icon icon="mdi:login" class="h-4 w-4" />
+					{isSubmitting ? m.auth_signing_in() : m.auth_sign_in()}
+				</button>
+			</form>
 
 			{#if getEnabledSocialProviders().length > 0}
 				<div class="divider my-0">{m.auth_or_continue_with()}</div>
 				<div class="grid gap-2">
 					{#each getEnabledSocialProviders() as provider (provider)}
-						<button
-							class="btn btn-outline"
-							type="button"
-							onclick={() => signInSocial(provider)}
-							disabled={socialSubmitting !== null}
+						<form
+							method="POST"
+							action="?/social"
+							use:enhance={({ formData }) => {
+								errorMessage = '';
+								socialSubmitting = (formData.get('provider') as SocialProviderId) ?? null;
+								return async ({ result, update }) => {
+									await update();
+									if (result.type === 'failure') {
+										const actionError = (result.data as { errorMessage?: string } | undefined)
+											?.errorMessage;
+										errorMessage = actionError ?? m.auth_unable_social_sign_in();
+									}
+									socialSubmitting = null;
+								};
+							}}
 						>
-							<Icon icon="mdi:account-circle-outline" class="h-4 w-4" />
-							{socialSubmitting === provider
-								? m.auth_signing_in()
-								: m.auth_continue_with_provider({ provider: socialProviderLabel(provider) })}
-						</button>
+							<input type="hidden" name="provider" value={provider} />
+							<input type="hidden" name="next" value={data.next} />
+							<input
+								type="hidden"
+								name="requestSignUp"
+								value={data.authSettings?.registrationEnabled ? 'true' : 'false'}
+							/>
+							<button
+								class="btn w-full btn-outline"
+								type="submit"
+								disabled={socialSubmitting !== null}
+							>
+								<Icon icon="mdi:account-circle-outline" class="h-4 w-4" />
+								{socialSubmitting === provider
+									? m.auth_signing_in()
+									: m.auth_continue_with_provider({ provider: socialProviderLabel(provider) })}
+							</button>
+						</form>
 					{/each}
 				</div>
 			{/if}
