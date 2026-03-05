@@ -479,6 +479,46 @@ export async function createShareDownloadGrant(code: string, password?: string |
 	};
 }
 
+export async function createShareUploadDownload(
+	code: string,
+	uploadId: string,
+	password?: string | null
+) {
+	const share = await getPublicShareByCode(code, password);
+	if (share.requiresPassword) throw new Error('Password required');
+
+	const [row] = await db
+		.select({
+			id: uploads.id,
+			filename: uploads.filename,
+			mimeType: uploads.mimeType,
+			storagePath: uploads.storagePath
+		})
+		.from(shareUpload)
+		.innerJoin(uploads, eq(shareUpload.uploadId, uploads.id))
+		.where(
+			and(eq(shareUpload.shareId, share.id), eq(uploads.id, uploadId), isNull(uploads.deletedAt))
+		)
+		.limit(1);
+
+	if (!row) {
+		throw new Error('Upload not found in share');
+	}
+
+	if (!row.storagePath) {
+		throw new Error('Upload content is unavailable');
+	}
+
+	const content = await fs.readFile(row.storagePath);
+	await incrementDownloadIfAllowed(share.id);
+
+	return {
+		filename: toSafeFilename(row.filename, `${row.id}.bin`),
+		mimeType: row.mimeType || 'application/octet-stream',
+		content: Uint8Array.from(content)
+	};
+}
+
 export async function createShareZipDownload(code: string, password?: string | null) {
 	const share = await getPublicShareByCode(code, password);
 	if (share.requiresPassword) throw new Error('Password required');

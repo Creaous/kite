@@ -1,12 +1,12 @@
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async (event) => {
-	const password = event.url.searchParams.get('password') || undefined;
+async function streamZip(event: Parameters<RequestHandler>[0], password?: string) {
+	const normalizedPassword = typeof password === 'string' && password.trim() ? password : undefined;
 
 	const response = await event.fetch(`/api/v1/public/shares/${event.params.code}/download/zip`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ password })
+		body: JSON.stringify({ password: normalizedPassword })
 	});
 
 	if (!response.ok) {
@@ -25,4 +25,13 @@ export const GET: RequestHandler = async (event) => {
 		status: 200,
 		headers
 	});
+};
+
+export const GET: RequestHandler = async (event) => {
+	return streamZip(event);
+};
+
+export const POST: RequestHandler = async (event) => {
+	const body = await event.request.json().catch(() => ({}));
+	return streamZip(event, body?.password);
 };

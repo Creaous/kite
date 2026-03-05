@@ -56,9 +56,52 @@
 
 	const requiresPassword = $derived(Boolean(data.requiresPassword || share?.requiresPassword));
 
-	function downloadFile(uploadId: string) {
-		const query = password ? `?password=${encodeURIComponent(password)}` : '';
-		window.location.href = resolve(`/s/${params.code}/download/${uploadId}${query}`);
+	async function downloadZip() {
+		message = '';
+
+		const response = await fetch(resolve(`/s/${params.code}/download/zip`), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ password: password || undefined })
+		});
+
+		if (!response.ok) {
+			message = (await response.text()) || m.share_load_failed();
+			return;
+		}
+
+		const blob = await response.blob();
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `${params.code}.zip`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function downloadFile(uploadId: string) {
+		message = '';
+
+		const response = await fetch(resolve(`/s/${params.code}/download/${uploadId}`), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ password: password || undefined })
+		});
+
+		if (!response.ok) {
+			message = (await response.text()) || m.share_load_failed();
+			return;
+		}
+
+		const blob = await response.blob();
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		const contentDisposition = response.headers.get('content-disposition') ?? '';
+		const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+		link.href = url;
+		link.download = filenameMatch?.[1] || `${uploadId}.bin`;
+		link.click();
+		URL.revokeObjectURL(url);
 	}
 </script>
 
@@ -165,15 +208,10 @@
 					/>
 
 					<div class="mt-4 flex flex-wrap gap-2">
-						<a
-							class="btn btn-primary"
-							href={resolve(
-								`/s/${params.code}/download/zip${password ? `?password=${encodeURIComponent(password)}` : ''}`
-							)}
-						>
+						<button class="btn btn-primary" type="button" onclick={() => void downloadZip()}>
 							<Icon icon="mdi:folder-zip-outline" class="h-4 w-4" />
 							{m.public_download_zip()}
-						</a>
+						</button>
 					</div>
 				{/if}
 			</div>
