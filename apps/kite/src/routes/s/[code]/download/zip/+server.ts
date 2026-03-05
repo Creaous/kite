@@ -25,7 +25,7 @@ async function streamZip(event: Parameters<RequestHandler>[0], password?: string
 		status: 200,
 		headers
 	});
-};
+}
 
 export const GET: RequestHandler = async (event) => {
 	return streamZip(event);

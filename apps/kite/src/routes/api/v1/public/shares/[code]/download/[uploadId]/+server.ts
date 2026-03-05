@@ -33,8 +33,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 				: includesInternalError(err, 'limit')
 					? 403
 					: includesInternalError(err, 'not found') ||
-						includesInternalError(err, 'expired') ||
-						includesInternalError(err, 'unavailable')
+						  includesInternalError(err, 'expired') ||
+						  includesInternalError(err, 'unavailable')
 						? 404
 						: 500;
 
