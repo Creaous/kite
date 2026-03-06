@@ -68,4 +68,8 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle: Handle = sequence(handleParaglide, handlePublicApiAvailability, handleBetterAuth);
+export const handle: Handle = sequence(
+	handleParaglide,
+	handlePublicApiAvailability,
+	handleBetterAuth
+);
