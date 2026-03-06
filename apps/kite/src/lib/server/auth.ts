@@ -32,15 +32,26 @@ export const isInitialSetupEnabled = process.env.ENABLE_INITIAL_SETUP !== 'false
 const origin = process.env.ORIGIN;
 const authSecret = process.env.BETTER_AUTH_SECRET;
 
-if (process.env.NODE_ENV === 'production') {
-	if (!origin) {
+let hasValidatedProductionAuthEnv = false;
+
+export function assertAuthEnvironmentForRuntime() {
+	if (process.env.NODE_ENV !== 'production' || hasValidatedProductionAuthEnv) {
+		return;
+	}
+
+	if (!process.env.ORIGIN) {
 		throw new Error('ORIGIN must be configured in production');
 	}
 
-	if (!authSecret || authSecret === 'default-build-secret') {
+	const runtimeSecret = process.env.BETTER_AUTH_SECRET;
+	if (!runtimeSecret || runtimeSecret === 'default-build-secret') {
 		throw new Error('BETTER_AUTH_SECRET must be configured in production');
 	}
-} else {
+
+	hasValidatedProductionAuthEnv = true;
+}
+
+if (process.env.NODE_ENV !== 'production') {
 	if (!authSecret || authSecret === 'default-build-secret') {
 		console.warn(
 			'[security] BETTER_AUTH_SECRET is not set or is using the insecure default value. ' +
@@ -87,7 +98,7 @@ export function getAvailableSocialProviders() {
 }
 
 export const auth = betterAuth({
-	baseURL: origin,
+	baseURL: origin ?? 'http://localhost:3000',
 	database: drizzleAdapter(db, {
 		provider: 'pg',
 		schema

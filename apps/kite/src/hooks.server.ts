@@ -3,7 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 
 import { building } from '$app/environment';
-import { auth } from '$lib/server/auth';
+import { assertAuthEnvironmentForRuntime, auth } from '$lib/server/auth';
 import { getAuthSettings } from '$lib/server/services/settings';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { json } from '@sveltejs/kit';
@@ -55,6 +55,8 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 	});
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
+	assertAuthEnvironmentForRuntime();
+
 	if (event.url.pathname === '/api/auth' || event.url.pathname.startsWith('/api/auth/')) {
 		return auth.handler(event.request);
 	}
