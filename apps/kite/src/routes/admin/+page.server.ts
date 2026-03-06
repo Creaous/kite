@@ -195,6 +195,7 @@ export const actions = {
 		const payload = {
 			registrationEnabled: data.get('registrationEnabled') === 'on',
 			anonymousTokensEnabled: data.get('anonymousTokensEnabled') === 'on',
+			publicApiEnabled: data.get('publicApiEnabled') === 'on',
 			enabledSocialProviders
 		};
 

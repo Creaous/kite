@@ -31,12 +31,14 @@ export type BrandingSettings = {
 export type AuthSettings = {
 	registrationEnabled: boolean;
 	anonymousTokensEnabled: boolean;
+	publicApiEnabled: boolean;
 	enabledSocialProviders: SupportedSocialProviderId[];
 };
 
 export type AuthSettingsDefaults = {
 	registrationEnabled: boolean;
 	anonymousTokensEnabled: boolean;
+	publicApiEnabled: boolean;
 	availableSocialProviders: readonly SupportedSocialProviderId[];
 };
 
@@ -100,6 +102,8 @@ function normalizeAuthSettingsDefaults(
 			typeof defaults.anonymousTokensEnabled === 'boolean'
 				? defaults.anonymousTokensEnabled
 				: false,
+		publicApiEnabled:
+			typeof defaults.publicApiEnabled === 'boolean' ? defaults.publicApiEnabled : true,
 		availableSocialProviders: Array.isArray(defaults.availableSocialProviders)
 			? defaults.availableSocialProviders
 			: []
@@ -110,6 +114,7 @@ function getDefaultAuthSettings(defaults: AuthSettingsDefaults): AuthSettings {
 	return {
 		registrationEnabled: defaults.registrationEnabled,
 		anonymousTokensEnabled: defaults.anonymousTokensEnabled,
+		publicApiEnabled: defaults.publicApiEnabled,
 		enabledSocialProviders: [...defaults.availableSocialProviders]
 	};
 }
@@ -164,6 +169,10 @@ function toAuthSettings(
 			typeof parsed.anonymousTokensEnabled === 'boolean'
 				? parsed.anonymousTokensEnabled
 				: fallback.anonymousTokensEnabled,
+		publicApiEnabled:
+			typeof parsed.publicApiEnabled === 'boolean'
+				? parsed.publicApiEnabled
+				: fallback.publicApiEnabled,
 		enabledSocialProviders
 	};
 }
@@ -247,6 +256,10 @@ export async function saveAuthSettings(
 			typeof input.anonymousTokensEnabled === 'boolean'
 				? input.anonymousTokensEnabled
 				: current.anonymousTokensEnabled,
+		publicApiEnabled:
+			typeof input.publicApiEnabled === 'boolean'
+				? input.publicApiEnabled
+				: current.publicApiEnabled,
 		enabledSocialProviders: Array.isArray(input.enabledSocialProviders)
 			? input.enabledSocialProviders.filter(
 					(provider): provider is SupportedSocialProviderId =>

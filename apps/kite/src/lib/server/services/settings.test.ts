@@ -40,11 +40,13 @@ describe('settings service (db)', () => {
 		const auth = await getAuthSettings({
 			registrationEnabled: false,
 			anonymousTokensEnabled: true,
+			publicApiEnabled: false,
 			availableSocialProviders: ['github', 'google']
 		});
 
 		expect(auth.registrationEnabled).toBe(false);
 		expect(auth.anonymousTokensEnabled).toBe(true);
+		expect(auth.publicApiEnabled).toBe(false);
 		expect(auth.enabledSocialProviders).toEqual(['github', 'google']);
 	});
 
@@ -53,22 +55,26 @@ describe('settings service (db)', () => {
 			{
 				registrationEnabled: true,
 				anonymousTokensEnabled: false,
+				publicApiEnabled: false,
 				enabledSocialProviders: ['github', 'discord', 'not-real' as never]
 			},
 			{
 				registrationEnabled: true,
 				anonymousTokensEnabled: true,
+				publicApiEnabled: true,
 				availableSocialProviders: ['github', 'discord']
 			}
 		);
 
 		expect(saved.registrationEnabled).toBe(true);
 		expect(saved.anonymousTokensEnabled).toBe(false);
+		expect(saved.publicApiEnabled).toBe(false);
 		expect(saved.enabledSocialProviders).toEqual(['github', 'discord']);
 
 		const reloaded = await getAuthSettings({
 			registrationEnabled: true,
 			anonymousTokensEnabled: true,
+			publicApiEnabled: true,
 			availableSocialProviders: ['github', 'discord']
 		});
 
@@ -81,11 +87,13 @@ describe('settings service (db)', () => {
 		const auth = await getAuthSettings({
 			registrationEnabled: true,
 			anonymousTokensEnabled: false,
+			publicApiEnabled: false,
 			availableSocialProviders: ['github']
 		});
 
 		expect(auth.registrationEnabled).toBe(true);
 		expect(auth.anonymousTokensEnabled).toBe(false);
+		expect(auth.publicApiEnabled).toBe(false);
 		expect(auth.enabledSocialProviders).toEqual(['github']);
 
 		await db.delete(settings).where(eq(settings.key, 'auth'));

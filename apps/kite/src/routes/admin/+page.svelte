@@ -72,6 +72,7 @@
 
 	let registrationEnabled = $state(Boolean(getInitialAuthSettings().registrationEnabled));
 	let anonymousTokensEnabled = $state(Boolean(getInitialAuthSettings().anonymousTokensEnabled));
+	let publicApiEnabled = $state(Boolean(getInitialAuthSettings().publicApiEnabled ?? true));
 	let availableSocialProviders = $state<SocialProviderId[]>(
 		getInitialAuthSettings().availableSocialProviders ?? []
 	);
@@ -473,6 +474,21 @@
 					/>
 					<span class="label-text">{m.admin_auth_anonymous_tokens_enabled()}</span>
 				</label>
+			</fieldset>
+
+			<fieldset class="fieldset">
+				<label class="label cursor-pointer justify-start gap-3">
+					<input
+						type="checkbox"
+						class="toggle toggle-sm"
+						name="publicApiEnabled"
+						bind:checked={publicApiEnabled}
+					/>
+					<span class="label-text">API access enabled</span>
+				</label>
+				<p class="text-xs text-base-content/70">
+					When disabled, only /api/auth and /api/v1/uploads remain available.
+				</p>
 			</fieldset>
 
 			<fieldset class="fieldset">
