@@ -1,5 +1,9 @@
 # 🪁 Kite
 
+![Current Release](https://git.codeguilds.org/Mitchell/kite/badges/release.svg "Current Release")
+![Tests Workflow](https://git.codeguilds.org/Mitchell/kite/badges/workflows/tests.yml/badge.svg "Tests Workflow")
+![Open Issues](https://git.codeguilds.org/Mitchell/kite/badges/issues/open.svg "Open Issues")
+
 Kite is a self-hosted file-sharing application built with SvelteKit and PostgreSQL (Drizzle ORM).
 It provides secure, link-based shares, share requests, admin controls, and an API for integrations.
 
