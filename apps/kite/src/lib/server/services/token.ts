@@ -8,7 +8,9 @@ import * as jose from 'jose';
 import { db } from '../db';
 import { tokenStore } from '../db/schema';
 
-export const tokenSecret = new TextEncoder().encode(String(process.env.TOKEN_SECRET ?? 'dev-secret'));
+export const tokenSecret = new TextEncoder().encode(
+	String(process.env.TOKEN_SECRET ?? 'dev-secret')
+);
 
 function getTokenSecret() {
 	const tokenSecretValue = process.env.TOKEN_SECRET;
