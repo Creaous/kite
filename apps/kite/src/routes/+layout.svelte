@@ -25,13 +25,6 @@
 		data.branding?.disableIndexing ? 'noindex, nofollow' : 'index, follow'
 	);
 
-	const globalAnnouncement = $derived(data.alertSettings?.globalAnnouncement ?? null);
-	const globalAnnouncementClass = $derived(
-		globalAnnouncement
-			? `alert rounded-none alert-${globalAnnouncement.type}`
-			: 'alert rounded-none'
-	);
-
 	type NavItem = {
 		href: '/' | '/shares' | '/share-requests' | '/admin';
 		label: () => string;
@@ -87,16 +80,6 @@
 </svelte:head>
 
 <div class="min-h-screen bg-base-200">
-	{#if data.isDevelopment}
-		<div role="alert" class="alert rounded-none alert-warning">
-			<span>{m.layout_development_warning()}</span>
-		</div>
-	{/if}
-	{#if globalAnnouncement?.enabled && globalAnnouncement.message.trim()}
-		<div role="alert" class={globalAnnouncementClass}>
-			<span>{globalAnnouncement.message}</span>
-		</div>
-	{/if}
 	<header class="navbar border-b border-base-300 bg-base-100 px-4 shadow-sm">
 		<div class="flex-1">
 			<a href={resolve('/')} class="btn text-lg btn-ghost">
@@ -151,12 +134,6 @@
 					<Icon icon="mdi:login" class="h-4 w-4" />
 					{m.auth_sign_in()}
 				</a>
-				{#if data.authSettings?.registrationEnabled}
-					<a class="btn btn-sm btn-primary" href={resolve('/sign-up')}>
-						<Icon icon="mdi:account-plus-outline" class="h-4 w-4" />
-						{m.auth_sign_up()}
-					</a>
-				{/if}
 			{/if}
 		</div>
 	</header>

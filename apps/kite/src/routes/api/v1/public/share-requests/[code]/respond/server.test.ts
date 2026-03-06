@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { POST } from './+server';
-import { createShareRequest } from '$lib/server/services/shareRequest';
+import { createShareRequest, updateShareRequest } from '$lib/server/services/shareRequest';
 import { initiateUpload } from '$lib/server/services/upload';
 import { createRequestEvent } from '$lib/server/test/request-event';
 
@@ -145,5 +145,47 @@ describe('POST /api/v1/public/share-requests/:code/respond', () => {
 		expect(res.status).toBe(401);
 		const body = await res.json();
 		expect(body.error.code).toBe('UNAUTHORIZED');
+	});
+
+	it('returns 409 when submission limit is reached', async () => {
+		const req = await createShareRequest({ title: 'Limited request', maxSubmissions: 1 });
+		const firstUpload = await initiateUpload({
+			filename: 'response-limit-1.txt',
+			size: 42,
+			fingerprint: 'fp-request-respond-limit-1'
+		});
+
+		const firstRes = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: `/api/v1/public/share-requests/${req.code}/respond`,
+				params: { code: req.code ?? '' },
+				authenticated: true,
+				body: { uploads: [{ uploadId: firstUpload.uploadId }] }
+			}) as never
+		);
+		expect(firstRes.status).toBe(200);
+
+		await updateShareRequest(req.id, { status: 'open' });
+
+		const secondUpload = await initiateUpload({
+			filename: 'response-limit-2.txt',
+			size: 42,
+			fingerprint: 'fp-request-respond-limit-2'
+		});
+
+		const secondRes = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: `/api/v1/public/share-requests/${req.code}/respond`,
+				params: { code: req.code ?? '' },
+				authenticated: true,
+				body: { uploads: [{ uploadId: secondUpload.uploadId }] }
+			}) as never
+		);
+
+		expect(secondRes.status).toBe(409);
+		const body = await secondRes.json();
+		expect(body.error.code).toBe('SHARE_REQUEST_RESPOND_FAILED');
 	});
 });

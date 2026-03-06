@@ -1,12 +1,19 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
-	import { onMount } from 'svelte';
+	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import FileTreeView from '$lib/components/upload/FileTreeView.svelte';
 	import type { FileTreeEntry } from '$lib/components/upload/file-tree';
 	import { m } from '$lib/paraglide/messages';
 
 	let { data, params } = $props<{
-		data: { branding?: { appName?: string } };
+		data: {
+			branding?: { appName?: string };
+			share: PublicShare | null;
+			errorMessage?: string;
+			requiresPassword?: boolean;
+			notFound?: boolean;
+		};
 		params: { code: string };
 	}>();
 
@@ -24,12 +31,18 @@
 		uploads: { id: string; filename: string | null; relativePath: string | null; size: number }[];
 	};
 
-	let share = $state<PublicShare | null>(null);
+	function getInitialShare() {
+		return data.share ?? null;
+	}
+
+	function getInitialMessage() {
+		return data.errorMessage ?? '';
+	}
+
+	let share = $state<PublicShare | null>(getInitialShare());
 	let password = $state('');
-	let loading = $state(true);
-	let message = $state('');
-	let downloadUrlsByUploadId = $state<Record<string, string>>({});
-	let downloadingZip = $state(false);
+	let message = $state(getInitialMessage());
+	let unlocking = $state(false);
 
 	const treeEntries = $derived(
 		(share?.uploads ?? []).map((file) => ({
@@ -41,124 +54,55 @@
 		})) satisfies FileTreeEntry[]
 	);
 
-	async function loadShare() {
-		loading = true;
+	const requiresPassword = $derived(Boolean(data.requiresPassword || share?.requiresPassword));
+
+	async function downloadZip() {
 		message = '';
-		try {
-			const response = password
-				? await fetch(`/api/v1/public/shares/${params.code}`, {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ password })
-					})
-				: await fetch(`/api/v1/public/shares/${params.code}`);
-			const body = await response.json();
 
-			if (!response.ok) {
-				if (response.status === 401 && body?.error?.code === 'INVALID_PASSWORD') {
-					message = body?.error?.message ?? m.share_load_failed();
-					password = '';
-					return;
-				}
+		const response = await fetch(resolve(`/s/${params.code}/download/zip`), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ password: password || undefined })
+		});
 
-				message = body?.error?.message ?? m.share_load_failed();
-				share = null;
-				return;
-			}
-
-			share = body.data;
-		} catch {
-			message = m.share_load_failed();
-			share = null;
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function createDownloadGrant() {
-		message = '';
-		try {
-			const response = await fetch(`/api/v1/public/shares/${params.code}/download`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ password: password || undefined })
-			});
-			const body = await response.json();
-			if (!response.ok) {
-				message = body?.error?.message ?? m.share_prepare_download_failed();
-				return;
-			}
-
-			downloadUrlsByUploadId = Object.fromEntries(
-				(body.data.downloadUrls as { uploadId: string; url: string }[]).map((item) => [
-					item.uploadId,
-					item.url
-				])
-			);
-			if (share) {
-				share.downloadCount += 1;
-			}
-		} catch {
-			message = m.share_prepare_download_failed();
-		}
-	}
-
-	async function downloadFile(uploadId: string) {
-		if (!downloadUrlsByUploadId[uploadId]) {
-			await createDownloadGrant();
-		}
-
-		const url = downloadUrlsByUploadId[uploadId];
-		if (!url) {
-			message = m.share_file_download_failed();
+		if (!response.ok) {
+			message = (await response.text()) || m.share_load_failed();
 			return;
 		}
 
-		downloadUrlsByUploadId = {
-			...downloadUrlsByUploadId,
-			[uploadId]: ''
-		};
-
-		window.location.href = url;
+		const blob = await response.blob();
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `${params.code}.zip`;
+		link.click();
+		URL.revokeObjectURL(url);
 	}
 
-	async function downloadZip() {
-		downloadingZip = true;
+	async function downloadFile(uploadId: string) {
 		message = '';
 
-		try {
-			const response = await fetch(`/api/v1/public/shares/${params.code}/download/zip`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ password: password || undefined })
-			});
+		const response = await fetch(resolve(`/s/${params.code}/download/${uploadId}`), {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ password: password || undefined })
+		});
 
-			if (!response.ok) {
-				const body = await response.json().catch(() => ({}));
-				message = body?.error?.message ?? m.share_download_zip_failed();
-				return;
-			}
-
-			const blob = await response.blob();
-			const href = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = href;
-			a.download = `${params.code}.zip`;
-			a.click();
-			URL.revokeObjectURL(href);
-			if (share) {
-				share.downloadCount += 1;
-			}
-		} catch {
-			message = m.share_download_zip_failed();
-		} finally {
-			downloadingZip = false;
+		if (!response.ok) {
+			message = (await response.text()) || m.share_load_failed();
+			return;
 		}
-	}
 
-	onMount(() => {
-		void loadShare();
-	});
+		const blob = await response.blob();
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		const contentDisposition = response.headers.get('content-disposition') ?? '';
+		const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+		link.href = url;
+		link.download = filenameMatch?.[1] || `${uploadId}.bin`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <svelte:head>
@@ -178,9 +122,7 @@
 		</div>
 	</section>
 
-	{#if loading}
-		<div class="alert alert-info"><span>{m.share_loading()}</span></div>
-	{:else if share}
+	{#if share}
 		<section class="card border border-base-300 bg-base-100 shadow-sm">
 			<div class="card-body">
 				<h2 class="card-title">{share.title || m.share_untitled()}</h2>
@@ -209,17 +151,46 @@
 					</div>
 				{/if}
 
-				{#if share.requiresPassword}
-					<div class="space-y-2">
+				{#if requiresPassword}
+					<form
+						method="POST"
+						action="?/unlock"
+						class="space-y-2"
+						use:enhance={() => {
+							message = '';
+							unlocking = true;
+							return async ({ result, update }) => {
+								await update();
+								if (result.type === 'failure') {
+									message = result.data?.errorMessage ?? m.share_load_failed();
+								}
+
+								if (result.type === 'success' && result.data?.success) {
+									share = result.data?.data as PublicShare;
+									if (typeof result.data?.password === 'string') {
+										password = result.data.password;
+									}
+									message = '';
+								}
+
+								unlocking = false;
+							};
+						}}
+					>
 						<fieldset class="fieldset">
 							<legend class="fieldset-legend">{m.public_password_required()}</legend>
-							<input class="input-bordered input w-full" bind:value={password} type="password" />
+							<input
+								class="input-bordered input w-full"
+								bind:value={password}
+								name="password"
+								type="password"
+							/>
 						</fieldset>
-						<button class="btn btn-primary" onclick={loadShare} type="button">
+						<button class="btn btn-primary" type="submit" disabled={unlocking}>
 							<Icon icon="mdi:lock-open-variant-outline" class="h-4 w-4" />
-							{m.public_unlock_share()}
+							{unlocking ? m.share_loading() : m.public_unlock_share()}
 						</button>
-					</div>
+					</form>
 				{:else}
 					{#if share.maxDownloads > 0 && share.downloadCount >= share.maxDownloads}
 						<div role="alert" class="alert alert-warning">
@@ -237,22 +208,56 @@
 					/>
 
 					<div class="mt-4 flex flex-wrap gap-2">
-						<button
-							class="btn btn-primary"
-							onclick={downloadZip}
-							type="button"
-							disabled={downloadingZip ||
-								(share.maxDownloads > 0 && share.downloadCount >= share.maxDownloads)}
-						>
+						<button class="btn btn-primary" type="button" onclick={() => void downloadZip()}>
 							<Icon icon="mdi:folder-zip-outline" class="h-4 w-4" />
-							{downloadingZip ? m.public_preparing_zip() : m.public_download_zip()}
+							{m.public_download_zip()}
 						</button>
 					</div>
 				{/if}
 			</div>
 		</section>
-	{:else}
+	{:else if data.notFound}
 		<div role="alert" class="alert alert-error"><span>{m.share_not_found()}</span></div>
+	{:else}
+		<form
+			method="POST"
+			action="?/unlock"
+			class="card border border-base-300 bg-base-100 p-4 shadow-sm"
+			use:enhance={() => {
+				message = '';
+				unlocking = true;
+				return async ({ result, update }) => {
+					await update();
+					if (result.type === 'failure') {
+						message = result.data?.errorMessage ?? m.share_load_failed();
+					}
+
+					if (result.type === 'success' && result.data?.success) {
+						share = result.data?.data as PublicShare;
+						if (typeof result.data?.password === 'string') {
+							password = result.data.password;
+						}
+						message = '';
+					}
+
+					unlocking = false;
+				};
+			}}
+		>
+			<fieldset class="fieldset">
+				<legend class="fieldset-legend">{m.public_password_required()}</legend>
+				<input
+					class="input-bordered input w-full"
+					bind:value={password}
+					name="password"
+					type="password"
+				/>
+			</fieldset>
+			<button class="btn btn-primary" type="submit" disabled={unlocking}>
+				<Icon icon="mdi:lock-open-variant-outline" class="h-4 w-4" />
+				{unlocking ? m.share_loading() : m.public_unlock_share()}
+			</button>
+		</form>
 	{/if}
 
 	{#if message}

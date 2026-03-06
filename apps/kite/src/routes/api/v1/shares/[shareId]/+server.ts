@@ -153,6 +153,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
  *               password:
  *                 type: string
  *                 nullable: true
+ *               clearPassword:
+ *                 type: boolean
  *     responses:
  *       '200':
  *         description: Share updated
@@ -218,7 +220,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 					? body.password
 					: body?.password === null
 						? null
-						: undefined
+						: undefined,
+			clearPassword: typeof body?.clearPassword === 'boolean' ? body.clearPassword : undefined
 		});
 
 		return json({ data }, { status: 200 });

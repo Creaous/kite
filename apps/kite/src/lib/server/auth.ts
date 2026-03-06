@@ -17,6 +17,8 @@ import { ac, admin, trusted, user } from '../permissions';
 import * as schemas from './db/schema';
 import { getAuthSettings } from './services/settings';
 import { consumeToken, decodeToken, verifyToken } from './services/token';
+import { sveltekitCookies } from 'better-auth/svelte-kit';
+import { getRequestEvent } from '$app/server';
 
 const { ...schema } = schemas;
 
@@ -64,7 +66,8 @@ const plugins = [
 		}
 	}),
 	...(enabledPluginIds.has('anonymous') ? [anonymous()] : []),
-	...(enabledPluginIds.has('passkey') ? [passkey()] : [])
+	...(enabledPluginIds.has('passkey') ? [passkey()] : []),
+	sveltekitCookies(getRequestEvent)
 ] satisfies BetterAuthPlugin[];
 
 export function isPluginAvailable(value: string): value is AuthPluginId {

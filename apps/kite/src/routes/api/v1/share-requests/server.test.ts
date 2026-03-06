@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GET, POST } from './+server';
-import { createShareRequest } from '$lib/server/services/shareRequest';
+import { createShareRequest, updateShareRequest } from '$lib/server/services/shareRequest';
 import { createRequestEvent } from '$lib/server/test/request-event';
 
 vi.mock('$lib/server/auth', () => ({
@@ -32,6 +32,25 @@ describe('GET/POST /api/v1/share-requests', () => {
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(Array.isArray(body.data)).toBe(true);
+	});
+
+	it('includes closed requests in list responses', async () => {
+		const request = await createShareRequest({ title: 'Close me' });
+		await updateShareRequest(request.id, { status: 'fulfilled' });
+
+		const res = await GET(
+			createRequestEvent({
+				method: 'GET',
+				path: '/api/v1/share-requests',
+				authenticated: true
+			}) as never
+		);
+
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.data.some((item: { id: string; status: string }) => item.id === request.id)).toBe(
+			true
+		);
 	});
 
 	it('returns 401 for unauthenticated users on list', async () => {
@@ -105,6 +124,54 @@ describe('GET/POST /api/v1/share-requests', () => {
 		expect(res.status).toBe(201);
 		const body = await res.json();
 		expect(body.data.hideRequesterEmail).toBe(true);
+	});
+
+	it('creates a share request with maxSubmissions', async () => {
+		const userHasPermissionMock = vi.mocked(auth.api.userHasPermission);
+		userHasPermissionMock.mockResolvedValueOnce({
+			error: null,
+			success: true
+		} as Awaited<ReturnType<typeof auth.api.userHasPermission>>);
+
+		const res = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: '/api/v1/share-requests',
+				authenticated: true,
+				body: {
+					title: 'Limited request',
+					maxSubmissions: 4
+				}
+			}) as never
+		);
+
+		expect(res.status).toBe(201);
+		const body = await res.json();
+		expect(body.data.maxSubmissions).toBe(4);
+	});
+
+	it('creates a share request with a generated-share password', async () => {
+		const userHasPermissionMock = vi.mocked(auth.api.userHasPermission);
+		userHasPermissionMock.mockResolvedValueOnce({
+			error: null,
+			success: true
+		} as Awaited<ReturnType<typeof auth.api.userHasPermission>>);
+
+		const res = await POST(
+			createRequestEvent({
+				method: 'POST',
+				path: '/api/v1/share-requests',
+				authenticated: true,
+				body: {
+					title: 'Passworded responses',
+					password: 'secret'
+				}
+			}) as never
+		);
+
+		expect(res.status).toBe(201);
+		const body = await res.json();
+		expect(body.data.passwordProtected).toBe(true);
 	});
 
 	it('returns 400 when title is missing', async () => {

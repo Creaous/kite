@@ -19,6 +19,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		const data = await getAuthSettings({
 			registrationEnabled: isEmailAndPasswordEnabled,
 			anonymousTokensEnabled: isAnonymousEnabled,
+			publicApiEnabled: true,
 			availableSocialProviders: configuredProviderIds
 		});
 
@@ -60,6 +61,13 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 		);
 	}
 
+	if (typeof body?.publicApiEnabled !== 'boolean') {
+		return json(
+			{ error: { code: 'INVALID_INPUT', message: 'publicApiEnabled is required' } },
+			{ status: 400 }
+		);
+	}
+
 	if (!Array.isArray(body?.enabledSocialProviders)) {
 		return json(
 			{ error: { code: 'INVALID_INPUT', message: 'enabledSocialProviders is required' } },
@@ -78,11 +86,13 @@ export const PUT: RequestHandler = async ({ locals, request }) => {
 			{
 				registrationEnabled: body.registrationEnabled,
 				anonymousTokensEnabled: body.anonymousTokensEnabled,
+				publicApiEnabled: body.publicApiEnabled,
 				enabledSocialProviders
 			},
 			{
 				registrationEnabled: isEmailAndPasswordEnabled,
 				anonymousTokensEnabled: isAnonymousEnabled,
+				publicApiEnabled: true,
 				availableSocialProviders: configuredProviderIds
 			}
 		);

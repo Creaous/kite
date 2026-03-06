@@ -71,10 +71,16 @@ export const GET: RequestHandler = async ({ locals }) => {
  *                     type: string
  *               hideRequesterEmail:
  *                 type: boolean
+ *               password:
+ *                 type: string
+ *                 nullable: true
  *               expiresAt:
  *                 type: string
  *                 format: date-time
  *                 nullable: true
+ *               maxSubmissions:
+ *                 type: number
+ *                 minimum: 1
  *               createdBy:
  *                 type: string
  *                 nullable: true
@@ -131,6 +137,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 						}
 					: null,
 			hideRequesterEmail: body?.hideRequesterEmail === true,
+			password: typeof body?.password === 'string' ? body.password : null,
+			maxSubmissions: typeof body?.maxSubmissions === 'number' ? body.maxSubmissions : undefined,
 			expiresAt: body?.expiresAt ? String(body.expiresAt) : null,
 			createdBy: null
 		});

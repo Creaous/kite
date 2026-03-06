@@ -15,6 +15,10 @@ export const otherRelations = defineRelationsPart(
 				from: [r.shares.createdBy],
 				to: [r.user.id]
 			}),
+			request: r.one.shareRequests({
+				from: [r.shares.sourceRequestId],
+				to: [r.shareRequests.id]
+			}),
 			files: r.many.uploads({
 				from: r.shares.id.through(r.shareUpload.shareId),
 				to: r.uploads.id.through(r.shareUpload.uploadId)
@@ -31,7 +35,8 @@ export const otherRelations = defineRelationsPart(
 			requester: r.one.user({
 				from: [r.shareRequests.createdBy],
 				to: [r.user.id]
-			})
+			}),
+			submissions: r.many.shares()
 		},
 		auditLog: {
 			actor: r.one.user({

@@ -5,6 +5,7 @@
 		type UploadedFile
 	} from '$lib/components/upload/UnifiedUploadInterface.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { enhance } from '$app/forms';
 
 	let { data } = $props();
 
@@ -52,47 +53,9 @@
 		return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
-	async function createShare() {
-		if (uploads.length === 0) {
-			errorMessage = m.share_upload_required();
-			return;
-		}
-
-		isSubmitting = true;
-		errorMessage = '';
-		successMessage = '';
-
-		try {
-			generatedPassword = password || '';
-			const response = await fetch('/api/v1/shares', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					title: title || undefined,
-					password: password || undefined,
-					message: message || undefined,
-					hideMessageBehindPassword,
-					highSensitivity,
-					maxDownloads,
-					expiresAt: expiresAt || undefined,
-					uploads: uploads.map((file) => ({ uploadId: file.uploadId, name: file.relativePath }))
-				})
-			});
-
-			const body = await response.json();
-			if (!response.ok) {
-				errorMessage = body?.error?.message ?? m.share_create_failed();
-				return;
-			}
-
-			createdCode = body.data.code;
-			successMessage = m.share_create_success();
-		} catch {
-			errorMessage = m.share_create_failed();
-		} finally {
-			isSubmitting = false;
-		}
-	}
+	const uploadsPayload = $derived(
+		JSON.stringify(uploads.map((file) => ({ uploadId: file.uploadId, name: file.relativePath })))
+	);
 </script>
 
 <svelte:head>
@@ -101,7 +64,39 @@
 
 <div class="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
 	<section class="card border border-base-300 bg-base-100 shadow-sm">
-		<div class="card-body gap-4">
+		<form
+			method="POST"
+			class="card-body gap-4"
+			use:enhance={() => {
+				if (uploads.length === 0) {
+					errorMessage = m.share_upload_required();
+					return;
+				}
+
+				generatedPassword = password || '';
+				errorMessage = '';
+				successMessage = '';
+				isSubmitting = true;
+
+				return async ({ result, update }) => {
+					await update();
+					if (result.type === 'success' && result.data?.success) {
+						const code = (result.data?.data as { code?: string } | undefined)?.code;
+						createdCode = typeof code === 'string' ? code : '';
+						successMessage = m.share_create_success();
+					}
+
+					if (result.type === 'failure') {
+						const actionError = (result.data as { errorMessage?: string } | undefined)
+							?.errorMessage;
+						errorMessage = actionError ?? m.share_create_failed();
+					}
+
+					isSubmitting = false;
+				};
+			}}
+		>
+			<input type="hidden" name="uploads" value={uploadsPayload} />
 			<div>
 				<h1 class="text-2xl font-bold">{m.nav_create_share()}</h1>
 				<p class="text-sm text-base-content/70">{m.share_create_subtitle()}</p>
@@ -116,7 +111,7 @@
 			<div class="grid gap-4 sm:grid-cols-2">
 				<fieldset class="fieldset sm:col-span-2">
 					<legend class="fieldset-legend">{m.form_title()}</legend>
-					<input class="input-bordered input w-full" bind:value={title} type="text" />
+					<input class="input-bordered input w-full" bind:value={title} name="title" type="text" />
 				</fieldset>
 
 				<fieldset class="fieldset">
@@ -125,6 +120,7 @@
 						<input
 							class="input-bordered input join-item w-full blur-sm transition hover:blur-none focus:blur-none"
 							bind:value={password}
+							name="password"
 							type="text"
 						/>
 						<button class="btn join-item" type="button" onclick={regeneratePassword}>
@@ -139,12 +135,18 @@
 
 				<fieldset class="fieldset">
 					<legend class="fieldset-legend">{m.form_expires_at()}</legend>
-					<input class="input-bordered input w-full" bind:value={expiresAt} type="datetime-local" />
+					<input
+						class="input-bordered input w-full"
+						bind:value={expiresAt}
+						name="expiresAt"
+						type="datetime-local"
+					/>
 				</fieldset>
 
 				<fieldset class="fieldset sm:col-span-2">
 					<legend class="fieldset-legend">{m.share_message_optional()}</legend>
-					<textarea class="textarea-bordered textarea w-full" bind:value={message}></textarea>
+					<textarea class="textarea-bordered textarea w-full" bind:value={message} name="message"
+					></textarea>
 				</fieldset>
 
 				<fieldset class="fieldset">
@@ -152,6 +154,7 @@
 					<input
 						class="input-bordered input w-full"
 						bind:value={maxDownloads}
+						name="maxDownloads"
 						type="number"
 						min="0"
 					/>
@@ -160,7 +163,12 @@
 				<fieldset class="fieldset">
 					<legend class="fieldset-legend">{m.share_message_visibility()}</legend>
 					<label class="label cursor-pointer justify-start gap-3">
-						<input class="toggle" type="checkbox" bind:checked={hideMessageBehindPassword} />
+						<input
+							class="toggle"
+							type="checkbox"
+							name="hideMessageBehindPassword"
+							bind:checked={hideMessageBehindPassword}
+						/>
 						<span class="label-text">{m.share_hide_message_password()}</span>
 					</label>
 				</fieldset>
@@ -168,7 +176,12 @@
 				<fieldset class="fieldset">
 					<legend class="fieldset-legend">{m.share_high_sensitivity_label()}</legend>
 					<label class="label cursor-pointer justify-start gap-3">
-						<input class="toggle" type="checkbox" bind:checked={highSensitivity} />
+						<input
+							class="toggle"
+							type="checkbox"
+							name="highSensitivity"
+							bind:checked={highSensitivity}
+						/>
 						<span class="label-text">{m.share_high_sensitivity_label()}</span>
 					</label>
 					<p class="mt-1 text-xs text-base-content/60">
@@ -187,8 +200,7 @@
 				<button
 					class="btn btn-primary"
 					disabled={isSubmitting || uploads.length === 0}
-					onclick={createShare}
-					type="button"
+					type="submit"
 				>
 					<Icon icon="mdi:share-variant" class="h-4 w-4" />
 					{isSubmitting ? m.action_creating() : m.share_create_action()}
@@ -201,7 +213,7 @@
 			{#if successMessage}
 				<div role="alert" class="alert alert-success"><span>{successMessage}</span></div>
 			{/if}
-		</div>
+		</form>
 	</section>
 
 	<section class="card border border-base-300 bg-base-100 shadow-sm">

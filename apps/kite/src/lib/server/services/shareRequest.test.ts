@@ -115,4 +115,94 @@ describe('shareRequest service (db)', () => {
 			'Share request has expired'
 		);
 	});
+
+	it('accepts submissions up to maxSubmissions and then rejects', async () => {
+		const req = await createShareRequest({
+			title: 'Limited submissions request',
+			maxSubmissions: 2
+		});
+		createdRequests.push(req.id);
+
+		const [firstUpload] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'rq-fp-limit-1',
+				filename: 'limit-1.jpg',
+				size: 10,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(firstUpload.id);
+
+		const [secondUpload] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'rq-fp-limit-2',
+				filename: 'limit-2.jpg',
+				size: 10,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(secondUpload.id);
+
+		const [thirdUpload] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'rq-fp-limit-3',
+				filename: 'limit-3.jpg',
+				size: 10,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(thirdUpload.id);
+
+		const first = await respondToRequest(req.code!, [{ uploadId: firstUpload.id }]);
+		const second = await respondToRequest(req.code!, [{ uploadId: secondUpload.id }]);
+		createdShares.push(first.shareId, second.shareId);
+
+		await expect(respondToRequest(req.code!, [{ uploadId: thirdUpload.id }])).rejects.toThrow(
+			'Share request is not open'
+		);
+
+		const updated = await db.query.shareRequests.findFirst({ where: { id: req.id } });
+		expect(updated?.status).toBe('fulfilled');
+	});
+
+	it('inherits password to generated shares when request password is set', async () => {
+		const req = await createShareRequest({
+			title: 'Password protected responses',
+			password: 'request-secret'
+		});
+		createdRequests.push(req.id);
+
+		const [upload] = await db
+			.insert(uploads)
+			.values({
+				fingerprint: 'rq-fp-password-1',
+				filename: 'secret.txt',
+				size: 10,
+				uploadedBytes: 0,
+				status: 'ready'
+			})
+			.returning();
+		createdUploads.push(upload.id);
+
+		const result = await respondToRequest(req.code!, [{ uploadId: upload.id }]);
+		createdShares.push(result.shareId);
+
+		const [createdShare] = await db
+			.select({
+				passwordProtected: shares.passwordProtected,
+				passwordHash: shares.passwordHash
+			})
+			.from(shares)
+			.where(eq(shares.id, result.shareId))
+			.limit(1);
+
+		expect(createdShare?.passwordProtected).toBe(true);
+		expect(createdShare?.passwordHash).toBeTruthy();
+	});
 });

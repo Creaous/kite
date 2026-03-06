@@ -47,6 +47,7 @@ describe('GET/PUT /api/v1/admin/auth-settings', () => {
 		const body = await res.json();
 		expect(typeof body.data.registrationEnabled).toBe('boolean');
 		expect(typeof body.data.anonymousTokensEnabled).toBe('boolean');
+		expect(typeof body.data.publicApiEnabled).toBe('boolean');
 		expect(Array.isArray(body.data.enabledSocialProviders)).toBe(true);
 		expect(Array.isArray(body.data.availableSocialProviders)).toBe(true);
 	});
@@ -59,7 +60,8 @@ describe('GET/PUT /api/v1/admin/auth-settings', () => {
 				authenticated: true,
 				body: {
 					registrationEnabled: true,
-					anonymousTokensEnabled: true
+					anonymousTokensEnabled: true,
+					publicApiEnabled: true
 				}
 			}) as never
 		);
@@ -78,6 +80,7 @@ describe('GET/PUT /api/v1/admin/auth-settings', () => {
 				body: {
 					registrationEnabled: false,
 					anonymousTokensEnabled: false,
+					publicApiEnabled: false,
 					enabledSocialProviders: []
 				}
 			}) as never
@@ -87,6 +90,7 @@ describe('GET/PUT /api/v1/admin/auth-settings', () => {
 		const putBody = await putRes.json();
 		expect(putBody.data.registrationEnabled).toBe(false);
 		expect(putBody.data.anonymousTokensEnabled).toBe(false);
+		expect(putBody.data.publicApiEnabled).toBe(false);
 
 		const getRes = await GET(
 			createRequestEvent({
@@ -100,6 +104,7 @@ describe('GET/PUT /api/v1/admin/auth-settings', () => {
 		const getBody = await getRes.json();
 		expect(getBody.data.registrationEnabled).toBe(false);
 		expect(getBody.data.anonymousTokensEnabled).toBe(false);
+		expect(getBody.data.publicApiEnabled).toBe(false);
 		expect(Array.isArray(getBody.data.enabledSocialProviders)).toBe(true);
 	});
 });

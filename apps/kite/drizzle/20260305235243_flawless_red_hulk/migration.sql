@@ -63,6 +63,7 @@ CREATE TABLE "uploads" (
 	"chunk_size" integer,
 	"uploaded_bytes" bigint DEFAULT 0 NOT NULL,
 	"status" "upload_status" DEFAULT 'pending'::"upload_status" NOT NULL,
+	"high_sensitivity" boolean DEFAULT false NOT NULL,
 	"storage_provider" text,
 	"storage_path" text,
 	"hash" text,
@@ -77,10 +78,13 @@ CREATE TABLE "share_requests" (
 	"code" text UNIQUE,
 	"title" text,
 	"message" text,
+	"password_hash" text,
 	"requester_name" text,
 	"requester_email" text,
+	"hide_requester_email" boolean DEFAULT false NOT NULL,
 	"expires_at" timestamp,
 	"status" "request_status" DEFAULT 'open'::"request_status" NOT NULL,
+	"max_submissions" integer DEFAULT 1 NOT NULL,
 	"created_by" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -93,10 +97,12 @@ CREATE TABLE "shares" (
 	"title" text,
 	"password_hash" text,
 	"password_protected" boolean DEFAULT false NOT NULL,
+	"high_sensitivity" boolean DEFAULT false NOT NULL,
 	"message" text,
 	"hide_message_behind_password" boolean DEFAULT false NOT NULL,
 	"expires_at" timestamp,
 	"status" "share_status" DEFAULT 'active'::"share_status" NOT NULL,
+	"source_request_id" uuid,
 	"created_by" text,
 	"max_downloads" integer DEFAULT 0 NOT NULL,
 	"download_count" integer DEFAULT 0 NOT NULL,
@@ -146,6 +152,7 @@ CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpo
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
 CREATE INDEX "uploads_uploadedBy_idx" ON "uploads" ("uploaded_by");--> statement-breakpoint
 CREATE INDEX "uploads_fingerprint_idx" ON "uploads" ("fingerprint");--> statement-breakpoint
+CREATE INDEX "uploads_highSensitivity_idx" ON "uploads" ("high_sensitivity");--> statement-breakpoint
 CREATE INDEX "uploads_status_idx" ON "uploads" ("status");--> statement-breakpoint
 CREATE INDEX "uploads_createdAt_idx" ON "uploads" ("created_at");--> statement-breakpoint
 CREATE INDEX "share_requests_code_idx" ON "share_requests" ("code");--> statement-breakpoint
@@ -154,6 +161,7 @@ CREATE INDEX "share_requests_expiresAt_idx" ON "share_requests" ("expires_at");-
 CREATE INDEX "shares_code_idx" ON "shares" ("code");--> statement-breakpoint
 CREATE INDEX "shares_expiresAt_idx" ON "shares" ("expires_at");--> statement-breakpoint
 CREATE INDEX "shares_createdBy_idx" ON "shares" ("created_by");--> statement-breakpoint
+CREATE INDEX "shares_sourceRequestId_idx" ON "shares" ("source_request_id");--> statement-breakpoint
 CREATE INDEX "share_upload_shareId_idx" ON "share_upload" ("share_id");--> statement-breakpoint
 CREATE INDEX "share_upload_uploadId_idx" ON "share_upload" ("upload_id");--> statement-breakpoint
 CREATE INDEX "token_store_expiresAt_idx" ON "token_store" ("expires_at");--> statement-breakpoint
@@ -162,6 +170,7 @@ ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY 
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "uploads" ADD CONSTRAINT "uploads_uploaded_by_user_id_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "share_requests" ADD CONSTRAINT "share_requests_created_by_user_id_fkey" FOREIGN KEY ("created_by") REFERENCES "user"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "shares" ADD CONSTRAINT "shares_source_request_id_share_requests_id_fkey" FOREIGN KEY ("source_request_id") REFERENCES "share_requests"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "shares" ADD CONSTRAINT "shares_created_by_user_id_fkey" FOREIGN KEY ("created_by") REFERENCES "user"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "share_upload" ADD CONSTRAINT "share_upload_share_id_shares_id_fkey" FOREIGN KEY ("share_id") REFERENCES "shares"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "share_upload" ADD CONSTRAINT "share_upload_upload_id_uploads_id_fkey" FOREIGN KEY ("upload_id") REFERENCES "uploads"("id") ON DELETE RESTRICT;

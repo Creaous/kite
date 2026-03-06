@@ -2,11 +2,8 @@
 	import { resolve } from '$app/paths';
 	import Icon from '@iconify/svelte';
 	import { m } from '$lib/paraglide/messages';
-	import UnifiedUploadInterface, {
-		type UploadedFile
-	} from '$lib/components/upload/UnifiedUploadInterface.svelte';
 	import { onMount } from 'svelte';
-	import { authClient } from '$lib/auth-client';
+	import { enhance } from '$app/forms';
 
 	let { data } = $props();
 	type CurrentUser = {
@@ -23,50 +20,71 @@
 		requesterName: string | null;
 		requesterEmail: string | null;
 		hideRequesterEmail: boolean;
+		passwordProtected: boolean;
+		maxSubmissions: number;
+		submissionCount: number;
 		expiresAt: string | null;
 		status: string;
 		createdAt: string;
 	};
 
-	let activeTab = $state<'create' | 'manage' | 'respond'>('create');
+	type SubmissionItem = {
+		id: string;
+		code: string;
+		title: string | null;
+		status: string;
+		expiresAt: string | null;
+		createdAt: string;
+		uploadCount: number;
+	};
+
+	let activeTab = $state<'create' | 'manage'>('create');
+
+	let errorMessage = $derived(data.errorMessage ?? '');
+	let successMessage = $state('');
+
+	let actionId = $state('');
+	let requestCode = $state('');
+
 	let title = $state('');
-	let description = $state('');
+	let message = $state('');
 	let requesterName = $state('');
 	let requesterEmail = $state('');
 	let hideRequesterEmail = $state(false);
+	let responsePassword = $state('');
+	let maxSubmissions = $state(1);
 	let expiresAt = $state('');
 
-	let createMessage = $state('');
-	let createdCode = $state('');
-	let creating = $state(false);
-	let canCreateRequests = $state(false);
-	let checkingCreatePermission = $state(true);
+	let canCreateRequests = $derived(data.canCreateShareRequest);
 	let loadingRequests = $state(false);
-	let requests = $state<ShareRequestItem[]>([]);
-	let selectedRequestId = $state('');
-	let selectedRequestCode = $state('');
+	let shareRequests = $derived<ShareRequestItem[]>(data.shareRequests);
+
 	const EDIT_DIALOG_ID = 'request-edit-dialog';
 	const DELETE_DIALOG_ID = 'request-delete-dialog';
 	const EMAIL_DIALOG_ID = 'request-email-dialog';
+	const SUBMISSIONS_DIALOG_ID = 'request-submissions-dialog';
+
 	let editTitle = $state('');
 	let editMessage = $state('');
 	let editRequesterName = $state('');
 	let editRequesterEmail = $state('');
+	let editResponsePassword = $state('');
+	let editPasswordProtected = $state(false);
+	let editClearPassword = $state(false);
+	let editMaxSubmissions = $state(1);
 	let editExpiresAt = $state('');
 	let editHideRequesterEmail = $state(false);
+
+	let submissions = $state<SubmissionItem[]>([]);
+	let loadingSubmissions = $state(false);
+	let submissionsError = $state('');
+
 	type RecipientDraft = {
 		name: string;
 		email: string;
 	};
 	let recipientRows = $state<RecipientDraft[]>([{ name: '', email: '' }]);
-	let emailSending = $state(false);
-	const canEmailRequests = $derived(Boolean(data.smtpConfigured));
-
-	let respondCode = $state('');
-	let responseUploads = $state<UploadedFile[]>([]);
-	let responding = $state(false);
-	let respondMessage = $state('');
-	const shareFlowAlert = $derived(data.alertSettings?.shareFlowAlert ?? null);
+	const canEmailRequests = $derived(data.smtpConfigured);
 
 	function getDialog(id: string) {
 		const dialog = document.getElementById(id);
@@ -91,126 +109,50 @@
 		return user?.email?.trim() ?? '';
 	}
 
-	async function loadRequests() {
-		loadingRequests = true;
-		try {
-			const response = await fetch('/api/v1/share-requests');
-			const body = await response.json();
-			if (!response.ok) {
-				createMessage = body?.error?.message ?? m.request_load_failed();
-				requests = [];
-				return;
-			}
-
-			requests = body.data;
-		} catch {
-			createMessage = m.request_load_failed();
-			requests = [];
-		} finally {
-			loadingRequests = false;
-		}
-	}
-
-	async function createRequest() {
-		if (!canCreateRequests) {
-			createMessage = m.request_create_permission_denied();
-			return;
-		}
-
-		if (!title.trim()) {
-			createMessage = m.form_title_required();
-			return;
-		}
-
-		creating = true;
-		createMessage = '';
-		try {
-			const response = await fetch('/api/v1/share-requests', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					title,
-					message: description || undefined,
-					expiresAt: expiresAt || undefined,
-					requester: {
-						name: requesterName || undefined,
-						email: requesterEmail || undefined
-					},
-					hideRequesterEmail
-				})
-			});
-
-			const body = await response.json();
-			if (!response.ok) {
-				createMessage = body?.error?.message ?? m.request_create_failed();
-				return;
-			}
-
-			createdCode = body.data.code;
-			respondCode = body.data.code;
-			createMessage = m.request_created_code({ code: body.data.code });
-			if (canEmailRequests) {
-				openEmailModal(body.data as ShareRequestItem);
-			}
-			title = '';
-			description = '';
-			requesterName = getDefaultRequesterName();
-			requesterEmail = getDefaultRequesterEmail();
-			hideRequesterEmail = false;
-			expiresAt = '';
-			await loadRequests();
-		} catch {
-			createMessage = m.request_create_failed();
-		} finally {
-			creating = false;
-		}
-	}
-
-	async function loadCreatePermission() {
-		checkingCreatePermission = true;
-		try {
-			const result = await authClient.admin.hasPermission({
-				permissions: {
-					shareRequest: ['create']
-				}
-			});
-
-			canCreateRequests = Boolean(result.data?.success);
-
-			if (!canCreateRequests && activeTab === 'create') {
-				activeTab = 'manage';
-			}
-		} catch {
-			canCreateRequests = false;
-			if (activeTab === 'create') {
-				activeTab = 'manage';
-			}
-		} finally {
-			checkingCreatePermission = false;
-		}
-	}
-
 	function openEditModal(request: ShareRequestItem) {
-		selectedRequestId = request.id;
-		selectedRequestCode = request.code;
+		actionId = request.id ?? '';
 		editTitle = request.title ?? '';
 		editMessage = request.message ?? '';
 		editRequesterName = request.requesterName ?? '';
 		editRequesterEmail = request.requesterEmail ?? '';
+		editResponsePassword = '';
+		editPasswordProtected = Boolean(request.passwordProtected);
+		editClearPassword = false;
+		editMaxSubmissions = Number(request.maxSubmissions ?? 1);
 		editHideRequesterEmail = Boolean(request.hideRequesterEmail);
 		editExpiresAt = request.expiresAt ? new Date(request.expiresAt).toISOString().slice(0, 16) : '';
 		getDialog(EDIT_DIALOG_ID)?.showModal();
 	}
 
+	async function openSubmissionsModal(request: ShareRequestItem) {
+		actionId = request.id ?? '';
+		requestCode = request.code ?? '';
+		submissions = [];
+		submissionsError = '';
+		loadingSubmissions = true;
+		getDialog(SUBMISSIONS_DIALOG_ID)?.showModal();
+
+		const response = await fetch(`/api/v1/share-requests/${request.id}/submissions`);
+		const body = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			submissionsError = body?.error?.message ?? 'Failed to load submissions.';
+			loadingSubmissions = false;
+			return;
+		}
+
+		submissions = Array.isArray(body?.data) ? body.data : [];
+		loadingSubmissions = false;
+	}
+
 	function openDeleteModal(request: ShareRequestItem) {
-		selectedRequestId = request.id;
-		selectedRequestCode = request.code;
+		actionId = request.id ?? '';
 		getDialog(DELETE_DIALOG_ID)?.showModal();
 	}
 
-	function openEmailModal(request: ShareRequestItem) {
-		selectedRequestId = request.id;
-		selectedRequestCode = request.code;
+	function openEmailModal(id: string, code: string = '') {
+		requestCode = code;
+		actionId = id;
 		recipientRows = [{ name: '', email: '' }];
 		getDialog(EMAIL_DIALOG_ID)?.showModal();
 	}
@@ -242,139 +184,16 @@
 			}));
 	}
 
-	function openEmailModalFromEdit() {
-		if (!selectedRequestId) return;
-		const request = requests.find((item) => item.id === selectedRequestId);
-		if (!request) return;
-		getDialog(EDIT_DIALOG_ID)?.close();
-		openEmailModal(request);
-	}
-
-	async function sendRequestEmail() {
-		if (!selectedRequestId) return;
-
-		const recipients = getRecipientsForSend();
-		if (recipients.length === 0) {
-			createMessage = m.request_email_recipient_required();
-			return;
-		}
-
-		emailSending = true;
-		try {
-			const response = await fetch(`/api/v1/share-requests/${selectedRequestId}/email`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ recipients })
-			});
-			const body = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				createMessage = body?.error?.message ?? m.request_email_send_failed();
-				return;
-			}
-
-			const count = Array.isArray(body?.data?.accepted)
-				? body.data.accepted.length
-				: recipients.length;
-			createMessage = m.request_email_sent_count({ count });
-			getDialog(EMAIL_DIALOG_ID)?.close();
-		} catch {
-			createMessage = m.request_email_send_failed();
-		} finally {
-			emailSending = false;
-		}
-	}
-
-	async function saveRequest() {
-		if (!selectedRequestId) return;
-		const response = await fetch(`/api/v1/share-requests/${selectedRequestId}`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				title: editTitle || null,
-				message: editMessage || null,
-				requester: {
-					name: editRequesterName || null,
-					email: editRequesterEmail || null
-				},
-				hideRequesterEmail: editHideRequesterEmail,
-				expiresAt: editExpiresAt || null
-			})
-		});
-		const body = await response.json();
-		if (!response.ok) {
-			createMessage = body?.error?.message ?? m.request_update_failed();
-			return;
-		}
-
-		createMessage = m.request_update_success();
-		getDialog(EDIT_DIALOG_ID)?.close();
-		await loadRequests();
-	}
-
-	async function deleteRequest() {
-		if (!selectedRequestId) return;
-		const response = await fetch(`/api/v1/share-requests/${selectedRequestId}`, {
-			method: 'DELETE'
-		});
-		if (!response.ok) {
-			const body = await response.json().catch(() => ({}));
-			createMessage = body?.error?.message ?? m.request_delete_failed();
-			return;
-		}
-
-		createMessage = m.request_delete_success();
-		getDialog(DELETE_DIALOG_ID)?.close();
-		await loadRequests();
-	}
-
 	function copyRequestLink(code: string) {
 		const url = `${window.location.origin}/r/${code}`;
 		void navigator.clipboard.writeText(url);
-		createMessage = m.request_link_copied();
-	}
-
-	async function respondToRequest() {
-		if (!respondCode.trim()) {
-			respondMessage = m.request_code_required();
-			return;
-		}
-		if (responseUploads.length === 0) {
-			respondMessage = m.upload_at_least_one();
-			return;
-		}
-
-		responding = true;
-		respondMessage = '';
-		try {
-			const response = await fetch(`/api/v1/public/share-requests/${respondCode}/respond`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					uploads: responseUploads.map((upload) => ({ uploadId: upload.uploadId }))
-				})
-			});
-
-			const body = await response.json();
-			if (!response.ok) {
-				respondMessage = body?.error?.message ?? m.request_respond_failed();
-				return;
-			}
-
-			respondMessage = m.request_response_created({ shareId: body.data.shareId });
-			responseUploads = [];
-			await loadRequests();
-		} catch {
-			respondMessage = m.request_respond_failed();
-		} finally {
-			responding = false;
-		}
+		successMessage = m.request_link_copied();
 	}
 
 	onMount(() => {
 		requesterName = getDefaultRequesterName();
 		requesterEmail = getDefaultRequesterEmail();
 		hideRequesterEmail = false;
-		void Promise.all([loadRequests(), loadCreatePermission()]);
 	});
 </script>
 
@@ -389,18 +208,18 @@
 	</p>
 </section>
 
-{#if createMessage}
-	<div role="alert" class="mb-4 alert alert-info"><span>{createMessage}</span></div>
+{#if errorMessage}
+	<div role="alert" class="mb-4 alert alert-error"><span>{errorMessage}</span></div>
 {/if}
-{#if respondMessage}
-	<div role="alert" class="mb-4 alert alert-success"><span>{respondMessage}</span></div>
+{#if successMessage}
+	<div role="alert" class="mb-4 alert alert-success"><span>{successMessage}</span></div>
 {/if}
 
 <div class="tabs-boxed mb-4 tabs w-fit">
 	<button
 		class="tab"
 		class:tab-active={activeTab === 'create'}
-		disabled={checkingCreatePermission || !canCreateRequests}
+		disabled={!canCreateRequests}
 		onclick={() => (activeTab = 'create')}
 	>
 		<Icon icon="mdi:plus-circle-outline" class="h-4 w-4" />
@@ -414,104 +233,150 @@
 		<Icon icon="mdi:cog-outline" class="h-4 w-4" />
 		{m.tab_manage()}
 	</button>
-	<button
-		class="tab"
-		class:tab-active={activeTab === 'respond'}
-		onclick={() => (activeTab = 'respond')}
-	>
-		<Icon icon="mdi:reply-outline" class="h-4 w-4" />
-		{m.tab_respond()}
-	</button>
 </div>
 
 {#if activeTab === 'create'}
 	<section class="card border border-base-300 bg-base-100 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">{m.request_create_title()}</h2>
-			{#if shareFlowAlert?.enabled && shareFlowAlert.message.trim()}
-				<div role="alert" class={`alert alert-${shareFlowAlert.type}`}>
-					<span>{shareFlowAlert.message}</span>
-				</div>
-			{/if}
-			{#if checkingCreatePermission}
-				<p class="text-sm text-base-content/70">{m.request_checking_permissions()}</p>
-			{:else if !canCreateRequests}
-				<div role="alert" class="alert alert-warning">
-					<span>{m.request_create_permission_denied()}</span>
-				</div>
-			{/if}
-			<div class="grid gap-4 sm:grid-cols-2">
-				<fieldset class="fieldset sm:col-span-2">
-					<legend class="fieldset-legend">{m.form_title()}</legend>
-					<input
-						class="input-bordered input w-full"
-						bind:value={title}
-						type="text"
-						disabled={checkingCreatePermission || !canCreateRequests}
-					/>
-				</fieldset>
-				<fieldset class="fieldset sm:col-span-2">
-					<legend class="fieldset-legend">{m.common_message()}</legend>
-					<textarea
-						class="textarea-bordered textarea w-full"
-						bind:value={description}
-						disabled={checkingCreatePermission || !canCreateRequests}
-					></textarea>
-				</fieldset>
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">{m.request_requester_name()}</legend>
-					<input
-						class="input-bordered input w-full"
-						bind:value={requesterName}
-						type="text"
-						disabled={checkingCreatePermission || !canCreateRequests}
-					/>
-				</fieldset>
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">{m.request_requester_email()}</legend>
-					<input
-						class="input-bordered input w-full"
-						bind:value={requesterEmail}
-						type="email"
-						disabled={checkingCreatePermission || !canCreateRequests}
-					/>
-					<label class="label cursor-pointer justify-start gap-2">
+			<form
+				method="POST"
+				action="?/create"
+				use:enhance={() => {
+					if (!canCreateRequests) {
+						errorMessage = m.request_create_permission_denied();
+						return;
+					}
+
+					if (!title.trim()) {
+						errorMessage = m.form_title_required();
+						return;
+					}
+
+					return async ({ result }) => {
+						if (result.type === 'success' && result.data?.success) {
+							const data = result.data?.data as ShareRequestItem;
+							successMessage = m.request_created_code({ code: data.code });
+							errorMessage = '';
+							shareRequests.unshift(data);
+							requestCode = data.code;
+							// clear
+							title = '';
+							message = '';
+							requesterName = getDefaultRequesterName();
+							requesterEmail = getDefaultRequesterEmail();
+							hideRequesterEmail = false;
+							responsePassword = '';
+							maxSubmissions = 1;
+							expiresAt = '';
+							return;
+						}
+
+						const error = 'data' in result ? result.data?.errorMessage : null;
+						errorMessage = error ?? m.request_create_failed();
+					};
+				}}
+			>
+				<h2 class="card-title">{m.request_create_title()}</h2>
+				{#if !canCreateRequests}
+					<div role="alert" class="alert alert-warning">
+						<span>{m.request_create_permission_denied()}</span>
+					</div>
+				{/if}
+				<div class="grid gap-4 sm:grid-cols-2">
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">{m.form_title()}</legend>
 						<input
-							type="checkbox"
-							class="checkbox checkbox-sm"
-							bind:checked={hideRequesterEmail}
-							disabled={checkingCreatePermission || !canCreateRequests}
+							class="input-bordered input w-full"
+							name="title"
+							bind:value={title}
+							type="text"
+							disabled={!canCreateRequests}
 						/>
-						<span class="label-text">{m.request_hide_requester_email()}</span>
-					</label>
-				</fieldset>
-				<fieldset class="fieldset sm:col-span-2">
-					<legend class="fieldset-legend">{m.request_expires_optional()}</legend>
-					<input
-						class="input-bordered input w-full"
-						bind:value={expiresAt}
-						type="datetime-local"
-						disabled={checkingCreatePermission || !canCreateRequests}
-					/>
-				</fieldset>
-			</div>
-			<div class="card-actions">
-				<button
-					class="btn btn-primary"
-					disabled={creating || checkingCreatePermission || !canCreateRequests}
-					onclick={createRequest}
-					type="button"
-				>
-					<Icon icon="mdi:plus-circle-outline" class="h-4 w-4" />
-					{creating ? m.action_creating() : m.request_create_action()}
-				</button>
-			</div>
-			{#if createdCode}
-				<a class="flex link items-center gap-1 link-primary" href={resolve(`/r/${createdCode}`)}>
-					<Icon icon="mdi:open-in-new" class="h-4 w-4" />
-					{m.request_open_public_page()}
-				</a>
-			{/if}
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">{m.common_message()}</legend>
+						<textarea
+							class="textarea-bordered textarea w-full"
+							name="message"
+							bind:value={message}
+							disabled={!canCreateRequests}
+						></textarea>
+					</fieldset>
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">{m.request_requester_name()}</legend>
+						<input
+							class="input-bordered input w-full"
+							name="requesterName"
+							bind:value={requesterName}
+							type="text"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+					<fieldset class="fieldset">
+						<legend class="fieldset-legend">{m.request_requester_email()}</legend>
+						<input
+							class="input-bordered input w-full"
+							name="requesterEmail"
+							bind:value={requesterEmail}
+							type="email"
+							disabled={!canCreateRequests}
+						/>
+						<label class="label cursor-pointer justify-start gap-2">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								name="hideRequesterEmail"
+								bind:checked={hideRequesterEmail}
+								disabled={!canCreateRequests}
+							/>
+							<span class="label-text">{m.request_hide_requester_email()}</span>
+						</label>
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">Submission limit</legend>
+						<input
+							class="input-bordered input w-full"
+							name="maxSubmissions"
+							bind:value={maxSubmissions}
+							type="number"
+							min="1"
+							step="1"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">Password for generated shares (optional)</legend>
+						<input
+							class="input-bordered input w-full"
+							name="password"
+							bind:value={responsePassword}
+							type="text"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+					<fieldset class="fieldset sm:col-span-2">
+						<legend class="fieldset-legend">{m.request_expires_optional()}</legend>
+						<input
+							class="input-bordered input w-full"
+							name="expiresAt"
+							bind:value={expiresAt}
+							type="datetime-local"
+							disabled={!canCreateRequests}
+						/>
+					</fieldset>
+				</div>
+				<div class="card-actions">
+					<button class="btn btn-primary" type="submit" disabled={!canCreateRequests}
+						>{m.request_create_action()}</button
+					>
+				</div>
+				{#if requestCode}
+					<a class="flex link items-center gap-1 link-primary" href={resolve(`/r/${requestCode}`)}>
+						<Icon icon="mdi:open-in-new" class="h-4 w-4" />
+						{m.request_open_public_page()}
+					</a>
+				{/if}
+			</form>
 		</div>
 	</section>
 {:else if activeTab === 'manage'}
@@ -519,11 +384,11 @@
 		<div class="card-body">
 			{#if loadingRequests}
 				<span class="loading loading-md loading-spinner"></span>
-			{:else if requests.length === 0}
-				<p>{m.request_empty_open()}</p>
+			{:else if shareRequests.length === 0}
+				<p>No requests yet.</p>
 			{:else}
 				<div class="grid gap-4 md:grid-cols-2">
-					{#each requests as request (request.id)}
+					{#each shareRequests as request (request.id)}
 						<article class="card border border-base-300 bg-base-100">
 							<div class="card-body p-4">
 								<h3 class="card-title text-base">{request.title || m.request_untitled()}</h3>
@@ -535,6 +400,7 @@
 								{/if}
 								<div class="text-xs text-base-content/70">
 									<p>{m.common_status()}: {request.status}</p>
+									<p>Submissions: {request.submissionCount ?? 0} / {request.maxSubmissions ?? 1}</p>
 									<p>
 										{m.common_expires()}: {request.expiresAt
 											? new Date(request.expiresAt).toLocaleString()
@@ -561,13 +427,21 @@
 									{#if canEmailRequests}
 										<button
 											class="btn btn-ghost btn-sm"
-											onclick={() => openEmailModal(request)}
+											onclick={() => openEmailModal(request.id, request.code)}
 											type="button"
 										>
 											<Icon icon="mdi:email-outline" class="h-4 w-4" />
 											{m.form_email()}
 										</button>
 									{/if}
+									<button
+										class="btn btn-ghost btn-sm"
+										onclick={() => openSubmissionsModal(request)}
+										type="button"
+									>
+										<Icon icon="mdi:inbox-arrow-down-outline" class="h-4 w-4" />
+										Submissions
+									</button>
 									<button
 										class="btn btn-ghost btn-sm"
 										onclick={() => openEditModal(request)}
@@ -592,80 +466,136 @@
 			{/if}
 		</div>
 	</section>
-{:else}
-	<section class="card border border-base-300 bg-base-100 shadow-sm">
-		<div class="card-body space-y-4">
-			<h2 class="card-title">{m.request_respond_title()}</h2>
-			{#if shareFlowAlert?.enabled && shareFlowAlert.message.trim()}
-				<div role="alert" class={`alert alert-${shareFlowAlert.type}`}>
-					<span>{shareFlowAlert.message}</span>
-				</div>
-			{/if}
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.request_code()}</legend>
-				<input class="input-bordered input w-full" bind:value={respondCode} type="text" />
-			</fieldset>
-
-			<UnifiedUploadInterface
-				title={m.request_upload_response_files()}
-				onuploaded={(files) => (responseUploads = files)}
-			/>
-
-			<button
-				class="btn btn-primary"
-				disabled={responding || !respondCode.trim() || responseUploads.length === 0}
-				onclick={respondToRequest}
-				type="button"
-			>
-				<Icon icon="mdi:reply-outline" class="h-4 w-4" />
-				{responding ? m.request_responding() : m.request_respond_action()}
-			</button>
-		</div>
-	</section>
 {/if}
 
 <dialog id={EDIT_DIALOG_ID} class="modal">
 	<div class="modal-box">
-		<h3 class="text-lg font-semibold">{m.request_edit_title()}</h3>
-		<div class="space-y-3 py-2">
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_title()}</legend>
-				<input class="input-bordered input w-full" bind:value={editTitle} type="text" />
-			</fieldset>
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.common_message()}</legend>
-				<textarea class="textarea-bordered textarea w-full" bind:value={editMessage}></textarea>
-			</fieldset>
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.request_requester_name()}</legend>
-				<input class="input-bordered input w-full" bind:value={editRequesterName} type="text" />
-			</fieldset>
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.request_requester_email()}</legend>
-				<input class="input-bordered input w-full" bind:value={editRequesterEmail} type="email" />
-			</fieldset>
-			<label class="label cursor-pointer justify-start gap-2">
-				<input type="checkbox" class="checkbox checkbox-sm" bind:checked={editHideRequesterEmail} />
-				<span class="label-text">{m.request_hide_requester_email()}</span>
-			</label>
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_expires_at()}</legend>
-				<input
-					class="input-bordered input w-full"
-					bind:value={editExpiresAt}
-					type="datetime-local"
-				/>
-			</fieldset>
-		</div>
-		<div class="modal-action">
-			{#if canEmailRequests}
-				<button class="btn btn-ghost" onclick={openEmailModalFromEdit} type="button"
-					>{m.form_email()}</button
+		<form
+			method="POST"
+			action="?/edit"
+			use:enhance={({ formData }) => {
+				formData.set('id', actionId);
+				// to-do: figure out why calling update() removes the id but not the others
+				return async ({ result }) => {
+					if (result.type === 'success' && result.data?.success) {
+						successMessage = m.request_update_success();
+						errorMessage = '';
+						shareRequests = shareRequests.map((shareRequest) =>
+							shareRequest.id === actionId ? (result.data?.data as ShareRequestItem) : shareRequest
+						);
+						getDialog(EDIT_DIALOG_ID)?.close();
+						return;
+					}
+
+					const error = 'data' in result ? result.data?.errorMessage : null;
+					errorMessage = error ?? m.request_update_failed();
+				};
+			}}
+		>
+			<h3 class="text-lg font-semibold">{m.request_edit_title()}</h3>
+			<div class="mt-3 space-y-3">
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_title()}</legend>
+					<input
+						class="input-bordered input w-full"
+						name="title"
+						bind:value={editTitle}
+						type="text"
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.common_message()}</legend>
+					<textarea
+						class="textarea-bordered textarea w-full"
+						name="message"
+						bind:value={editMessage}
+					></textarea>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.request_requester_name()}</legend>
+					<input
+						class="input-bordered input w-full"
+						name="requesterName"
+						bind:value={editRequesterName}
+						type="text"
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.request_requester_email()}</legend>
+					<input
+						class="input-bordered input w-full"
+						name="requesterEmail"
+						bind:value={editRequesterEmail}
+						type="email"
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Submission limit</legend>
+					<input
+						class="input-bordered input w-full"
+						name="maxSubmissions"
+						bind:value={editMaxSubmissions}
+						type="number"
+						min="1"
+						step="1"
+					/>
+				</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">Set new generated-share password</legend>
+					<input
+						class="input-bordered input w-full"
+						name="password"
+						bind:value={editResponsePassword}
+						type="text"
+						oninput={() => {
+							if (editResponsePassword.trim().length > 0) {
+								editClearPassword = false;
+							}
+						}}
+					/>
+				</fieldset>
+				{#if editPasswordProtected}
+					<label class="label cursor-pointer justify-start gap-2">
+						<input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							name="clearPassword"
+							bind:checked={editClearPassword}
+							disabled={editResponsePassword.trim().length > 0}
+						/>
+						<span class="label-text">Clear existing generated-share password</span>
+					</label>
+				{/if}
+				<label class="label cursor-pointer justify-start gap-2">
+					<input
+						type="checkbox"
+						class="checkbox checkbox-sm"
+						name="hideRequesterEmail"
+						bind:checked={editHideRequesterEmail}
+					/>
+					<span class="label-text">{m.request_hide_requester_email()}</span>
+				</label>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_expires_at()}</legend>
+					<input
+						class="input-bordered input w-full"
+						name="expiresAt"
+						bind:value={editExpiresAt}
+						type="datetime-local"
+					/>
+				</fieldset>
+			</div>
+			<div class="modal-action">
+				<button class="btn btn-primary" type="submit">{m.action_save()}</button>
+				<button
+					class="btn"
+					type="button"
+					onclick={() => {
+						getDialog(EDIT_DIALOG_ID)?.close();
+					}}>{m.action_cancel()}</button
 				>
-			{/if}
-			<button class="btn btn-primary" onclick={saveRequest} type="button">{m.action_save()}</button>
-			<form method="dialog"><button class="btn">{m.action_cancel()}</button></form>
-		</div>
+			</div>
+		</form>
 	</div>
 </dialog>
 
@@ -674,10 +604,34 @@
 		<h3 class="text-lg font-semibold">{m.request_delete_confirm_title()}</h3>
 		<p class="py-2 text-sm">{m.common_cannot_undo()}</p>
 		<div class="modal-action">
-			<button class="btn btn-error" onclick={deleteRequest} type="button"
-				>{m.action_delete()}</button
+			<form
+				method="POST"
+				action="?/delete"
+				use:enhance={({ formData }) => {
+					formData.set('id', actionId);
+					return async ({ result }) => {
+						if (result.type === 'success' && result.data?.success) {
+							successMessage = m.request_delete_success();
+							errorMessage = '';
+							shareRequests = shareRequests.filter((shareRequest) => shareRequest.id !== actionId);
+							getDialog(DELETE_DIALOG_ID)?.close();
+							return;
+						}
+
+						const error = 'data' in result ? result.data?.errorMessage : null;
+						errorMessage = error ?? m.request_delete_failed();
+					};
+				}}
 			>
-			<form method="dialog"><button class="btn">{m.action_cancel()}</button></form>
+				<button class="btn btn-error" type="submit">{m.action_delete()}</button>
+			</form>
+			<button
+				class="btn"
+				type="button"
+				onclick={() => {
+					getDialog(DELETE_DIALOG_ID)?.close();
+				}}>{m.action_cancel()}</button
+			>
 		</div>
 	</div>
 </dialog>
@@ -724,21 +678,90 @@
 					</div>
 				</fieldset>
 				<p class="text-xs text-base-content/70">
-					<span class="font-mono">/r/{selectedRequestCode}</span>
+					<span class="font-mono">/r/{requestCode}</span>
 				</p>
 			</div>
 			<div class="modal-action">
-				<button
-					class="btn btn-primary"
-					onclick={sendRequestEmail}
-					type="button"
-					disabled={emailSending}
+				<form
+					method="POST"
+					action="?/email"
+					use:enhance={({ formData }) => {
+						const recipients = getRecipientsForSend();
+						if (recipients.length === 0) {
+							errorMessage = m.request_email_recipient_required();
+							return;
+						}
+
+						formData.set('id', actionId);
+						formData.set('recipients', JSON.stringify(recipients));
+
+						// to-do: figure out why calling update() removes the id but not the others
+						return async ({ result }) => {
+							if (result.type === 'success' && result.data?.success) {
+								successMessage = m.request_email_sent_count({ count: recipients.length });
+								errorMessage = '';
+								getDialog(EMAIL_DIALOG_ID)?.close();
+								return;
+							}
+
+							const error = 'data' in result ? result.data?.errorMessage : null;
+							errorMessage = error ?? m.request_email_send_failed();
+						};
+					}}
 				>
-					<Icon icon="mdi:email-send-outline" class="h-4 w-4" />
-					{emailSending ? m.request_email_sending() : m.request_email_send_action()}
-				</button>
-				<form method="dialog"><button class="btn">{m.request_email_not_now()}</button></form>
+					<button class="btn btn-primary" type="submit">{m.request_email_send_action()}</button>
+				</form>
+				<button
+					class="btn"
+					type="button"
+					onclick={() => {
+						getDialog(EMAIL_DIALOG_ID)?.close();
+					}}>{m.request_email_not_now()}</button
+				>
 			</div>
 		</div>
 	</dialog>
 {/if}
+
+<dialog id={SUBMISSIONS_DIALOG_ID} class="modal">
+	<div class="modal-box">
+		<h3 class="text-lg font-semibold">Submissions for {requestCode}</h3>
+		{#if loadingSubmissions}
+			<div class="py-4">
+				<span class="loading loading-md loading-spinner"></span>
+			</div>
+		{:else if submissionsError}
+			<div role="alert" class="mt-3 alert alert-error"><span>{submissionsError}</span></div>
+		{:else if submissions.length === 0}
+			<p class="py-4 text-sm text-base-content/70">No submissions yet.</p>
+		{:else}
+			<div class="mt-4 space-y-2">
+				{#each submissions as submission (submission.id)}
+					<div class="rounded-lg border border-base-300 p-3">
+						<div class="flex items-center justify-between gap-2">
+							<p class="text-sm font-medium">{submission.title || 'Untitled submission'}</p>
+							<a
+								class="btn btn-outline btn-xs"
+								href={resolve(`/s/${submission.code}`)}
+								target="_blank">Open</a
+							>
+						</div>
+						<p class="mt-1 text-xs text-base-content/70">
+							Code: <span class="font-mono">{submission.code}</span>
+						</p>
+						<p class="text-xs text-base-content/70">Status: {submission.status}</p>
+						<p class="text-xs text-base-content/70">Files: {submission.uploadCount}</p>
+						<p class="text-xs text-base-content/70">
+							Created: {new Date(submission.createdAt).toLocaleString()}
+						</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		<div class="modal-action">
+			<button class="btn" type="button" onclick={() => getDialog(SUBMISSIONS_DIALOG_ID)?.close()}
+				>{m.action_cancel()}</button
+			>
+		</div>
+	</div>
+</dialog>
