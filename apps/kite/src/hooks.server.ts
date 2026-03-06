@@ -9,7 +9,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { json } from '@sveltejs/kit';
 
 const API_PREFIX = '/api';
-const API_WHITELIST_PREFIXES = ['/api/auth', '/api/v1/uploads'] as const;
+const API_WHITELIST_PREFIXES = ['/api/auth', '/api/v1/uploads', '/api/v1/me/onboarding'] as const;
 
 function isWhitelistedApiPath(pathname: string) {
 	return API_WHITELIST_PREFIXES.some(
@@ -17,7 +17,7 @@ function isWhitelistedApiPath(pathname: string) {
 	);
 }
 
-const handlePublicApiAvailability: Handle = async ({ event, resolve }) => {
+export const handlePublicApiAvailability: Handle = async ({ event, resolve }) => {
 	const { pathname } = event.url;
 
 	// Allow server-side event.fetch subrequests to continue working even when public API is disabled.
