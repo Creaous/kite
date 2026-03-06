@@ -8,6 +8,7 @@ import {
 	getAuthSettings,
 	getBrandingSettings
 } from '$lib/server/services/settings';
+import { getOrCreateUserProfile } from '$lib/server/services/userProfile';
 
 function isPublicPath(pathname: string) {
 	if (pathname === '/sign-in' || pathname === '/sign-up') return true;
@@ -47,8 +48,11 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 		throw redirect(303, next);
 	}
 
+	const userProfile = locals.user ? await getOrCreateUserProfile(locals.user.id) : null;
+
 	return {
 		user: locals.user ?? null,
+		userProfile,
 		session: locals.session ?? null,
 		branding,
 		alertSettings,

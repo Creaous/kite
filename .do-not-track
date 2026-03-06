@@ -1,0 +1,5 @@
+BETTER_AUTH_TELEMETRY=0
+DO_NOT_TRACK=1
+
+# no thanks, not giving it to a company of your kind.
+TURBO_TELEMETRY_DISABLED=1

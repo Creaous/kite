@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import Icon from '@iconify/svelte';
+	import { onMount } from 'svelte';
 	import { authClient } from '$lib/auth-client';
 	import { m } from '$lib/paraglide/messages';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
@@ -12,6 +13,8 @@
 	let { children, data } = $props();
 	let signingOut = $state(false);
 	let stoppingImpersonation = $state(false);
+	let onboardingDismissed = $state(false);
+	const ONBOARDING_DIALOG_ID = 'onboarding-dialog';
 
 	const isImpersonating = $derived(
 		Boolean((data.session as { impersonatedBy?: string } | null)?.impersonatedBy)
@@ -23,6 +26,9 @@
 	const metaDescription = $derived(appTagline || appName);
 	const robotsContent = $derived(
 		data.branding?.disableIndexing ? 'noindex, nofollow' : 'index, follow'
+	);
+	const shouldShowOnboarding = $derived(
+		Boolean(data.user && !data.userProfile?.onboardingCompleted && !onboardingDismissed)
 	);
 
 	type NavItem = {
@@ -68,6 +74,49 @@
 			stoppingImpersonation = false;
 		}
 	}
+
+	function getDialog(id: string) {
+		const dialog = document.getElementById(id);
+		return dialog instanceof HTMLDialogElement ? dialog : null;
+	}
+
+	async function markOnboardingComplete() {
+		if (!data.user || data.userProfile?.onboardingCompleted || onboardingDismissed) return;
+
+		onboardingDismissed = true;
+
+		await fetch('/api/v1/me/onboarding', {
+			method: 'POST'
+		});
+	}
+
+	function dismissOnboarding() {
+		const dialog = getDialog(ONBOARDING_DIALOG_ID);
+		if (dialog?.open) {
+			dialog.close();
+		}
+	}
+
+	async function handleOnboardingClose() {
+		await markOnboardingComplete();
+	}
+
+	async function completeOnboardingAndDismiss() {
+		await markOnboardingComplete();
+		dismissOnboarding();
+	}
+
+	async function openShareRequestsFromOnboarding(event: MouseEvent) {
+		event.preventDefault();
+		await markOnboardingComplete();
+		await goto(resolve('/share-requests'));
+	}
+
+	onMount(() => {
+		if (!shouldShowOnboarding) return;
+
+		getDialog(ONBOARDING_DIALOG_ID)?.showModal();
+	});
 </script>
 
 <svelte:head>
@@ -140,6 +189,37 @@
 
 	<main class="mx-auto w-full max-w-6xl p-4 md:p-6">{@render children()}</main>
 </div>
+
+{#if shouldShowOnboarding}
+	<dialog id={ONBOARDING_DIALOG_ID} class="modal" onclose={handleOnboardingClose}>
+		<div class="modal-box max-w-2xl">
+			<h2 class="text-xl font-semibold">Welcome to {appName}</h2>
+			<p class="mt-2 text-sm text-base-content/70">
+				Here is a quick walkthrough to start sharing in under a minute.
+			</p>
+			<ol class="mt-4 list-inside list-decimal space-y-2 text-sm">
+				<li>
+					Create a share with files or text from the <span class="font-medium">Create Share</span> page.
+				</li>
+				<li>Set expiry, password protection, and download limits before publishing.</li>
+				<li>
+					Use <span class="font-medium">Share Requests</span> when you need others to upload files to
+					you.
+				</li>
+			</ol>
+			<div class="modal-action">
+				<a
+					class="btn btn-outline"
+					href={resolve('/share-requests')}
+					onclick={openShareRequestsFromOnboarding}>Open Share Requests</a
+				>
+				<button class="btn btn-primary" type="button" onclick={completeOnboardingAndDismiss}
+					>Start Sharing</button
+				>
+			</div>
+		</div>
+	</dialog>
+{/if}
 
 <div style="display:none">
 	{#each locales as locale (locale)}
