@@ -18,6 +18,16 @@ It provides secure, link-based shares, share requests, admin controls, and an AP
 - REST API with OpenAPI generation for external integrations.
 - High sensitivity shares: Delete files within 60 seconds after deletion or expiry.
 
+## Official Repositories
+
+The only official repositories for Kite are on:
+
+- [CodeGuilds](https://git.codeguilds.org/Mitchell/kite) - main
+- [GitHub](https://github.com/Creaous/kite) - mirror
+- Codeberg (coming soon) - mirror
+
+Docker images will only be published on CodeGuilds.
+
 ## Monorepo layout
 
 - Root `package.json` is workspace orchestration only (`turbo` scripts, tooling), and intentionally stays `private` with no release version.
