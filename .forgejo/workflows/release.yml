@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - develop
     tags:
       - "v*"
 
@@ -60,6 +62,7 @@ jobs:
           git clean -fd
 
       - name: Verify immutable tag source
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: sh
         run: |
           set -eu
@@ -70,6 +73,7 @@ jobs:
           fi
 
       - name: Verify tag version matches apps/kite package version
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: sh
         run: |
           set -eu
@@ -117,12 +121,27 @@ jobs:
 
           image="${registry}/${repo}"
           cache_ref="${image}:buildcache"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] || [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
+            version_label="${GITHUB_REF_NAME}"
+            primary_tag="${image}:${GITHUB_REF_NAME}"
+            secondary_tag="${image}:latest"
+            channel="release"
+          else
+            short_sha="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
+            version_label="nightly-${short_sha}"
+            primary_tag="${image}:nightly"
+            secondary_tag="${image}:nightly-${short_sha}"
+            channel="nightly"
+          fi
+
           echo "registry=$registry" >> "$GITHUB_OUTPUT"
           echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           echo "cache_ref=$cache_ref" >> "$GITHUB_OUTPUT"
-          echo "latest=${image}:latest" >> "$GITHUB_OUTPUT"
-          echo "version_tag=${image}:${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "primary_tag=$primary_tag" >> "$GITHUB_OUTPUT"
+          echo "secondary_tag=$secondary_tag" >> "$GITHUB_OUTPUT"
+          echo "version_label=$version_label" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
       - name: Log in to container registry
         shell: sh
@@ -155,9 +174,9 @@ jobs:
             --cache-to "type=registry,ref=${{ steps.coords.outputs.cache_ref }},mode=max" \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --label "org.opencontainers.image.version=${GITHUB_REF_NAME}" \
-            --tag "${{ steps.coords.outputs.version_tag }}" \
-            --tag "${{ steps.coords.outputs.latest }}" \
+            --label "org.opencontainers.image.version=${{ steps.coords.outputs.version_label }}" \
+            --tag "${{ steps.coords.outputs.primary_tag }}" \
+            --tag "${{ steps.coords.outputs.secondary_tag }}" \
             --metadata-file ./build-metadata.json \
             .
 
@@ -170,6 +189,7 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
+        if: steps.coords.outputs.channel == 'release'
         shell: bash
         run: |
           set -euo pipefail
@@ -185,8 +205,8 @@ jobs:
             echo "- Image: \`${{ steps.coords.outputs.image }}\`"
             echo "- Digest: \`${{ steps.build.outputs.digest }}\`"
             echo "- Published tags:"
-            echo "  - \`${{ steps.coords.outputs.version_tag }}\`"
-            echo "  - \`${{ steps.coords.outputs.latest }}\`"
+            echo "  - \`${{ steps.coords.outputs.primary_tag }}\`"
+            echo "  - \`${{ steps.coords.outputs.secondary_tag }}\`"
             echo
             if [ -n "$previous_tag" ]; then
               echo "## Changes since $previous_tag"
@@ -200,6 +220,7 @@ jobs:
           } > RELEASE_NOTES.md
 
       - name: Publish release
+        if: steps.coords.outputs.channel == 'release'
         shell: bash
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
