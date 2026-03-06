@@ -18,7 +18,7 @@ FROM deps AS build
 COPY . .
 RUN pnpm --filter kite run build
 RUN pnpm --filter emails run build
-RUN pnpm prune --prod
+RUN CI=true pnpm prune --prod
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
