@@ -1,22 +1,23 @@
+import { db } from '../db';
+import { shares, shareRequests, shareUpload } from '../db/schema';
+import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import argon2 from '@node-rs/argon2';
+import { uploads } from '../db/schema';
+import { generateDownloadToken } from './token';
 import { promises as fs } from 'node:fs';
 import { randomInt } from 'node:crypto';
-
-import argon2 from '@node-rs/argon2';
-import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { zipSync } from 'fflate';
-
-import { db } from '../db';
-import { shares, shareUpload, uploads } from '../db/schema';
-import { generateDownloadToken } from './token';
 
 export type CreateShareDTO = {
 	title?: string | null;
 	expiresAt?: string | Date | null;
 	password?: string | null;
+	passwordHash?: string | null;
 	message?: string | null;
 	hideMessageBehindPassword?: boolean;
 	maxDownloads?: number | null;
 	highSensitivity?: boolean;
+	sourceRequestId?: string | null;
 	uploads: { uploadId: string; name?: string }[];
 	createdBy?: string | null;
 	actorUserId?: string | null;
@@ -64,11 +65,11 @@ export async function createShare(dto: CreateShareDTO) {
 		code = generateCode();
 	}
 
-	let _passwordHash: string | null = null;
-	const passwordProtected = !!dto.password;
-	if (dto.password) {
+	let _passwordHash: string | null = dto.passwordHash ?? null;
+	if (!_passwordHash && dto.password) {
 		_passwordHash = await argon2.hash(dto.password);
 	}
+	const passwordProtected = Boolean(_passwordHash);
 
 	const parsedMaxDownloads = Number(dto.maxDownloads ?? 0);
 	const maxDownloads = Number.isFinite(parsedMaxDownloads)
@@ -90,6 +91,7 @@ export async function createShare(dto: CreateShareDTO) {
 			message: dto.message ?? null,
 			hideMessageBehindPassword: dto.hideMessageBehindPassword ?? false,
 			expiresAt,
+			sourceRequestId: dto.sourceRequestId ?? null,
 			createdBy: dto.createdBy ?? null,
 			maxDownloads
 		})
@@ -242,13 +244,16 @@ export async function listShares() {
 			viewCount: shares.viewCount,
 			lastViewedAt: shares.lastViewedAt,
 			lastDownloadedAt: shares.lastDownloadedAt,
+			sourceRequestId: shares.sourceRequestId,
+			sourceRequestCode: shareRequests.code,
 			createdAt: shares.createdAt,
 			uploadCount: sql<number>`count(${shareUpload.uploadId})`
 		})
 		.from(shares)
+		.leftJoin(shareRequests, eq(shareRequests.id, shares.sourceRequestId))
 		.leftJoin(shareUpload, eq(shareUpload.shareId, shares.id))
 		.where(and(isNull(shares.deletedAt), eq(shares.status, 'active')))
-		.groupBy(shares.id)
+		.groupBy(shares.id, shareRequests.code)
 		.orderBy(desc(shares.createdAt));
 
 	return rows.map((row) => ({
@@ -263,6 +268,7 @@ export async function updateShare(
 		title?: string | null;
 		expiresAt?: string | Date | null;
 		password?: string | null;
+		clearPassword?: boolean;
 		message?: string | null;
 		hideMessageBehindPassword?: boolean;
 		maxDownloads?: number | null;
@@ -296,13 +302,13 @@ export async function updateShare(
 		values.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
 	}
 
-	if (dto.password !== undefined) {
+	if (dto.clearPassword === true) {
+		values.passwordHash = null;
+		values.passwordProtected = false;
+	} else if (dto.password !== undefined) {
 		if (dto.password && dto.password.length > 0) {
 			values.passwordHash = await argon2.hash(dto.password);
 			values.passwordProtected = true;
-		} else {
-			values.passwordHash = null;
-			values.passwordProtected = false;
 		}
 	}
 
@@ -474,6 +480,46 @@ export async function createShareDownloadGrant(code: string, password?: string |
 	return {
 		token: firstToken,
 		downloadUrls
+	};
+}
+
+export async function createShareUploadDownload(
+	code: string,
+	uploadId: string,
+	password?: string | null
+) {
+	const share = await getPublicShareByCode(code, password);
+	if (share.requiresPassword) throw new Error('Password required');
+
+	const [row] = await db
+		.select({
+			id: uploads.id,
+			filename: uploads.filename,
+			mimeType: uploads.mimeType,
+			storagePath: uploads.storagePath
+		})
+		.from(shareUpload)
+		.innerJoin(uploads, eq(shareUpload.uploadId, uploads.id))
+		.where(
+			and(eq(shareUpload.shareId, share.id), eq(uploads.id, uploadId), isNull(uploads.deletedAt))
+		)
+		.limit(1);
+
+	if (!row) {
+		throw new Error('Upload not found in share');
+	}
+
+	if (!row.storagePath) {
+		throw new Error('Upload content is unavailable');
+	}
+
+	const content = await fs.readFile(row.storagePath);
+	await incrementDownloadIfAllowed(share.id);
+
+	return {
+		filename: toSafeFilename(row.filename, `${row.id}.bin`),
+		mimeType: row.mimeType || 'application/octet-stream',
+		content: Uint8Array.from(content)
 	};
 }
 

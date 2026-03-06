@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
+	import { enhance } from '$app/forms';
 	import Icon from '@iconify/svelte';
-	import { authClient } from '$lib/auth-client';
 	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props();
@@ -13,60 +11,6 @@
 	let password = $state('');
 	let errorMessage = $state('');
 	let isSubmitting = $state(false);
-	type NextPath =
-		| '/'
-		| '/admin'
-		| '/share-requests'
-		| '/shares'
-		| '/sign-in'
-		| '/sign-up'
-		| `/r/${string}`
-		| `/s/${string}`;
-
-	function getNextPath(): NextPath {
-		const next = page.url.searchParams.get('next');
-		if (!next || !next.startsWith('/') || next.startsWith('//')) return '/';
-
-		if (next.startsWith('/r/') || next.startsWith('/s/')) {
-			return next as NextPath;
-		}
-
-		switch (next) {
-			case '/':
-			case '/admin':
-			case '/share-requests':
-			case '/shares':
-			case '/sign-in':
-			case '/sign-up':
-				return next;
-			default:
-				return '/';
-		}
-	}
-
-	async function signUp() {
-		errorMessage = '';
-		isSubmitting = true;
-
-		try {
-			const result = await authClient.signUp.email({
-				name,
-				email,
-				password
-			});
-
-			if (result.error) {
-				errorMessage = result.error.message ?? m.auth_unable_sign_up();
-				return;
-			}
-
-			await goto(resolve(getNextPath()));
-		} catch {
-			errorMessage = m.auth_unable_sign_up();
-		} finally {
-			isSubmitting = false;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -81,40 +25,61 @@
 				<p class="text-sm text-base-content/70">{m.auth_sign_up_subtitle()}</p>
 			</div>
 
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_name()}</legend>
-				<input
-					class="input-bordered input w-full"
-					type="text"
-					bind:value={name}
-					autocomplete="name"
-				/>
-			</fieldset>
+			<form
+				method="POST"
+				use:enhance={() => {
+					errorMessage = '';
+					isSubmitting = true;
+					return async ({ result, update }) => {
+						await update();
+						if (result.type === 'failure') {
+							const actionError = (result.data as { errorMessage?: string } | undefined)
+								?.errorMessage;
+							errorMessage = actionError ?? m.auth_unable_sign_up();
+						}
+						isSubmitting = false;
+					};
+				}}
+			>
+				<input type="hidden" name="next" value={data.next ?? '/'} />
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_name()}</legend>
+					<input
+						class="input-bordered input w-full"
+						type="text"
+						name="name"
+						bind:value={name}
+						autocomplete="name"
+					/>
+				</fieldset>
 
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_email()}</legend>
-				<input
-					class="input-bordered input w-full"
-					type="email"
-					bind:value={email}
-					autocomplete="email"
-				/>
-			</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_email()}</legend>
+					<input
+						class="input-bordered input w-full"
+						type="email"
+						name="email"
+						bind:value={email}
+						autocomplete="email"
+					/>
+				</fieldset>
 
-			<fieldset class="fieldset">
-				<legend class="fieldset-legend">{m.form_password()}</legend>
-				<input
-					class="input-bordered input w-full"
-					type="password"
-					bind:value={password}
-					autocomplete="new-password"
-				/>
-			</fieldset>
+				<fieldset class="fieldset">
+					<legend class="fieldset-legend">{m.form_password()}</legend>
+					<input
+						class="input-bordered input w-full"
+						type="password"
+						name="password"
+						bind:value={password}
+						autocomplete="new-password"
+					/>
+				</fieldset>
 
-			<button class="btn btn-primary" type="button" onclick={signUp} disabled={isSubmitting}>
-				<Icon icon="mdi:account-plus-outline" class="h-4 w-4" />
-				{isSubmitting ? m.auth_creating_account() : m.auth_create_account()}
-			</button>
+				<button class="btn btn-primary" type="submit" disabled={isSubmitting}>
+					<Icon icon="mdi:account-plus-outline" class="h-4 w-4" />
+					{isSubmitting ? m.auth_creating_account() : m.auth_create_account()}
+				</button>
+			</form>
 
 			{#if errorMessage}
 				<div role="alert" class="alert alert-error"><span>{errorMessage}</span></div>

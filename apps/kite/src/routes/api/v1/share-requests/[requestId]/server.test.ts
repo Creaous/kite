@@ -20,6 +20,7 @@ describe('PATCH/DELETE /api/v1/share-requests/:requestId', () => {
 				body: {
 					title: 'Updated title',
 					status: 'expired',
+					maxSubmissions: 5,
 					requester: { name: 'After', email: 'after@example.com' }
 				}
 			}) as never
@@ -30,6 +31,7 @@ describe('PATCH/DELETE /api/v1/share-requests/:requestId', () => {
 		expect(body.data.id).toBe(created.id);
 		expect(body.data.title).toBe('Updated title');
 		expect(body.data.status).toBe('expired');
+		expect(body.data.maxSubmissions).toBe(5);
 		expect(body.data.requesterName).toBe('After');
 		expect(body.data.requesterEmail).toBe('after@example.com');
 	});

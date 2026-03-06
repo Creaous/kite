@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "7b82086f-b089-4029-b239-b9f40c394a35",
+  "id": "25732312-bb41-4feb-9a17-467fe743ed74",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -744,6 +744,19 @@
       "table": "uploads"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "high_sensitivity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "uploads"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -894,6 +907,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "password_hash",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "share_requests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "requester_name",
       "entityType": "columns",
       "schema": "public",
@@ -908,6 +934,19 @@
       "generated": null,
       "identity": null,
       "name": "requester_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "share_requests"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "hide_requester_email",
       "entityType": "columns",
       "schema": "public",
       "table": "share_requests"
@@ -934,6 +973,19 @@
       "generated": null,
       "identity": null,
       "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "share_requests"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "max_submissions",
       "entityType": "columns",
       "schema": "public",
       "table": "share_requests"
@@ -1056,6 +1108,19 @@
       "table": "shares"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "high_sensitivity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shares"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -1103,6 +1168,19 @@
       "generated": null,
       "identity": null,
       "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "shares"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_request_id",
       "entityType": "columns",
       "schema": "public",
       "table": "shares"
@@ -1593,6 +1671,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "high_sensitivity",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "uploads_highSensitivity_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "uploads"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "status",
           "isExpression": false,
           "asc": true,
@@ -1761,6 +1860,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "source_request_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "shares_sourceRequestId_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "shares"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "share_id",
           "isExpression": false,
           "asc": true,
@@ -1915,6 +2035,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "share_requests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "source_request_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "share_requests",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "shares_source_request_id_share_requests_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "shares"
     },
     {
       "nameExplicit": false,
