@@ -26,7 +26,10 @@ vi.mock('better-auth/svelte-kit', () => ({
 }));
 
 vi.mock('$lib/paraglide/server', () => ({
-	paraglideMiddleware: (request: Request, callback: (args: { request: Request; locale: string }) => unknown) => {
+	paraglideMiddleware: (
+		request: Request,
+		callback: (args: { request: Request; locale: string }) => unknown
+	) => {
 		return callback({ request, locale: 'en' });
 	}
 }));
