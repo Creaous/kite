@@ -7,7 +7,7 @@
 	"license": "GPL-3.0-only",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "svelte-kit sync && vite build",
 		"start": "node build",
 		"start:container": "node scripts/start-app.mjs",
 		"worker": "node scripts/worker.mjs",

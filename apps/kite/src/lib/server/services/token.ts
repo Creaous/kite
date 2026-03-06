@@ -8,13 +8,17 @@ import * as jose from 'jose';
 import { db } from '../db';
 import { tokenStore } from '../db/schema';
 
-const tokenSecretValue = process.env.TOKEN_SECRET;
+export const tokenSecret = new TextEncoder().encode(String(process.env.TOKEN_SECRET ?? 'dev-secret'));
 
-if (process.env.NODE_ENV === 'production' && !tokenSecretValue) {
-	throw new Error('TOKEN_SECRET must be configured in production');
+function getTokenSecret() {
+	const tokenSecretValue = process.env.TOKEN_SECRET;
+
+	if (process.env.NODE_ENV === 'production' && !tokenSecretValue) {
+		throw new Error('TOKEN_SECRET must be configured in production');
+	}
+
+	return new TextEncoder().encode(String(tokenSecretValue ?? 'dev-secret'));
 }
-
-export const tokenSecret = new TextEncoder().encode(String(tokenSecretValue ?? 'dev-secret'));
 
 export type DownloadToken = jose.JWTPayload & {
 	shareId?: string;
@@ -38,9 +42,9 @@ export async function generateToken(
 		.setIssuedAt()
 		.setExpirationTime(exp)
 		.setSubject(subject ?? String(payload['sub'] ?? ''))
-		.sign(tokenSecret);
+		.sign(getTokenSecret());
 
-	const verified = await jose.jwtVerify(jwt, tokenSecret).catch(() => null);
+	const verified = await jose.jwtVerify(jwt, getTokenSecret()).catch(() => null);
 	let expiresAt: Date;
 	if (verified && verified.payload && typeof verified.payload.exp === 'number') {
 		expiresAt = new Date(verified.payload.exp * 1000);
@@ -156,7 +160,7 @@ export async function verifyToken(token: string) {
 	let payload: DownloadToken;
 
 	try {
-		const temp = await jose.jwtVerify(token, tokenSecret);
+		const temp = await jose.jwtVerify(token, getTokenSecret());
 		payload = temp.payload as DownloadToken;
 	} catch {
 		throw error(401, { message: 'Token is invalid', code: 'INVALID_TOKEN' });
