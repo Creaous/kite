@@ -40,7 +40,9 @@ COPY --from=build --chown=app:app /workspace/apps/kite/scripts ./scripts
 COPY --from=build --chown=app:app /workspace/apps/kite/drizzle ./drizzle
 COPY --from=build --chown=app:app /workspace/packages/emails/build_production ./emails
 
-RUN test -f /app/emails/share-request.html
+RUN test -f /app/emails/share-request.html \
+	&& test -f /app/emails/reset-password.html \
+	&& test -f /app/emails/verify-email.html
 
 RUN mkdir -p /app/uploads /tmp && chown -R app:app /app/uploads /tmp
 

@@ -16,6 +16,10 @@ import { db } from '$lib/server/db';
 import { ac, admin, trusted, user } from '../permissions';
 import * as schemas from './db/schema';
 import { getAuthSettings } from './services/settings';
+import {
+	sendPasswordResetEmail,
+	sendVerificationEmail as sendAuthVerificationEmail
+} from './services/authEmail';
 import { consumeToken, decodeToken, verifyToken } from './services/token';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
@@ -105,7 +109,32 @@ export const auth = betterAuth({
 	}),
 	emailAndPassword: {
 		enabled: isEmailAndPasswordEnabled,
-		requireEmailVerification: false
+		requireEmailVerification: false,
+		sendResetPassword: async ({ user, url }) => {
+			void sendPasswordResetEmail(
+				{
+					email: user.email,
+					name: user.name
+				},
+				url
+			).catch((error) => {
+				console.error('[auth] Failed to send password reset email', error);
+			});
+		}
+	},
+	emailVerification: {
+		sendOnSignUp: false,
+		sendVerificationEmail: async ({ user, url }) => {
+			void sendAuthVerificationEmail(
+				{
+					email: user.email,
+					name: user.name
+				},
+				url
+			).catch((error) => {
+				console.error('[auth] Failed to send verification email', error);
+			});
+		}
 	},
 	advanced: {
 		disableOriginCheck: process.env.NODE_ENV === 'development' ? true : false
