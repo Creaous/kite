@@ -31,6 +31,8 @@ describe('POST /api/v1/public/shares/:code/download/zip', () => {
 		expect(res.status).toBe(200);
 		expect(res.headers.get('content-type')).toBe('application/zip');
 		expect(res.headers.get('content-disposition')).toContain(`${share.code}.zip`);
+		expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+		expect(res.headers.get('cache-control')).toBe('private, no-store');
 		const bytes = new Uint8Array(await res.arrayBuffer());
 		expect(bytes.byteLength).toBeGreaterThan(20);
 	});

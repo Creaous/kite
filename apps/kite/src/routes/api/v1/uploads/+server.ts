@@ -3,6 +3,17 @@ import { json } from '@sveltejs/kit';
 import { initiateUpload } from '$lib/server/services/upload';
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
 
+const DEFAULT_MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
+
+function getMaxUploadSizeBytes() {
+	const value = Number(process.env.MAX_UPLOAD_SIZE_BYTES);
+	if (!Number.isFinite(value) || value <= 0) {
+		return DEFAULT_MAX_UPLOAD_SIZE_BYTES;
+	}
+
+	return Math.floor(value);
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const unauthorized = requireAuthenticatedUser(locals);
 	if (unauthorized) return unauthorized;
@@ -14,11 +25,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const size = Number(body?.size);
 		const fingerprint = typeof body?.fingerprint === 'string' ? body.fingerprint : '';
 		const highSensitivity = Boolean(body?.highSensitivity);
+		const maxUploadSizeBytes = getMaxUploadSizeBytes();
 
 		if (!filename || !Number.isFinite(size) || size <= 0 || !fingerprint) {
 			return json(
 				{ error: { code: 'INVALID_INPUT', message: 'filename, size, fingerprint are required' } },
 				{ status: 400 }
+			);
+		}
+
+		if (size > maxUploadSizeBytes) {
+			return json(
+				{
+					error: {
+						code: 'UPLOAD_TOO_LARGE',
+						message: `Upload size exceeds configured limit (${maxUploadSizeBytes} bytes)`
+					}
+				},
+				{ status: 413 }
 			);
 		}
 

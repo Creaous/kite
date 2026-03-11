@@ -23,7 +23,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			headers: {
 				'content-type': file.mimeType,
 				'content-disposition': `attachment; filename="${file.filename}"`,
-				'content-length': String(file.content.byteLength)
+				'content-length': String(file.content.byteLength),
+				'x-content-type-options': 'nosniff',
+				'cache-control': 'private, no-store'
 			}
 		});
 	} catch (err) {

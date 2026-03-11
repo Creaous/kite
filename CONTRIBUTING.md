@@ -213,3 +213,29 @@ Update documentation whenever you change:
 - Security-sensitive behavior or default settings
 
 Keeping docs current is part of done.
+
+## Monorepo layout
+
+- Root `package.json` is workspace orchestration only (`turbo` scripts, tooling), and intentionally stays `private` with no release version.
+- App runtime/release metadata lives in `apps/kite/package.json`.
+- Shared packages under `packages/` should have their own version only if/when they are independently published.
+
+## Versioning & release
+
+- Release version source of truth: `apps/kite/package.json`.
+- Release tag format: `vX.Y.Z` (must match `apps/kite/package.json#version`).
+- Helper commands from repo root:
+  - `pnpm run version:app` - print current app version
+  - `pnpm run version:app:patch` - bump patch in `apps/kite/package.json`
+  - `pnpm run version:app:minor` - bump minor in `apps/kite/package.json`
+  - `pnpm run version:app:major` - bump major in `apps/kite/package.json`
+- After bumping, commit and create/push a matching tag (for example `v0.0.2`) to trigger the release workflow.
+
+## Tech Stack
+
+- SvelteKit (frontend & server routes)
+- TailwindCSS + DaisyUI
+- PostgreSQL + Drizzle ORM
+- BullMQ + Redis (background jobs)
+- OpenAPI (auto-generated)
+- Vitest + Playwright for tests

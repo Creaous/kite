@@ -9,6 +9,17 @@ import { promises as fs } from 'node:fs';
 import { includesInternalError } from '$lib/server/api-errors';
 import { requireAuthenticatedUser } from '$lib/server/http-auth';
 
+const DEFAULT_MAX_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+
+function getMaxUploadChunkBytes() {
+	const value = Number(process.env.MAX_UPLOAD_CHUNK_BYTES);
+	if (!Number.isFinite(value) || value <= 0) {
+		return DEFAULT_MAX_UPLOAD_CHUNK_BYTES;
+	}
+
+	return Math.floor(value);
+}
+
 function toSafeFilename(filename: string | null | undefined, fallback: string) {
 	const source = filename?.trim() || fallback;
 	return source.replace(/[\\/\r\n\0]/g, '_');
@@ -82,7 +93,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			headers: {
 				'content-type': row.mimeType || 'application/octet-stream',
 				'content-disposition': `attachment; filename="${filename}"`,
-				'content-length': String(content.byteLength)
+				'content-length': String(content.byteLength),
+				'x-content-type-options': 'nosniff',
+				'cache-control': 'private, no-store'
 			}
 		});
 	} catch (err) {
@@ -122,6 +135,19 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	try {
 		const chunk = await request.arrayBuffer();
+		const maxUploadChunkBytes = getMaxUploadChunkBytes();
+		if (chunk.byteLength === 0 || chunk.byteLength > maxUploadChunkBytes) {
+			return json(
+				{
+					error: {
+						code: 'INVALID_CHUNK_SIZE',
+						message: `Upload chunk must be between 1 and ${maxUploadChunkBytes} bytes`
+					}
+				},
+				{ status: 413 }
+			);
+		}
+
 		const data = await appendChunk(uploadId, chunk, {
 			userId: locals.user!.id,
 			isAdmin: locals.user?.role === 'admin'

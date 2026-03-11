@@ -62,7 +62,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			headers: {
 				'content-type': 'application/zip',
 				'content-disposition': `attachment; filename="${zip.filename}"`,
-				'content-length': String(zipBytes.byteLength)
+				'content-length': String(zipBytes.byteLength),
+				'x-content-type-options': 'nosniff',
+				'cache-control': 'private, no-store'
 			}
 		});
 	} catch (err) {

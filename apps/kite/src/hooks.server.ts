@@ -45,6 +45,23 @@ export const handlePublicApiAvailability: Handle = async ({ event, resolve }) =>
 	);
 };
 
+const handleSecurityHeaders: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+
+	response.headers.set('x-content-type-options', 'nosniff');
+	response.headers.set('x-frame-options', 'DENY');
+	response.headers.set('referrer-policy', 'no-referrer');
+	response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+	response.headers.set('cross-origin-opener-policy', 'same-origin');
+	response.headers.set('cross-origin-resource-policy', 'same-origin');
+
+	if (process.env.NODE_ENV === 'production') {
+		response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
+	}
+
+	return response;
+};
+
 const handleParaglide: Handle = ({ event, resolve }) =>
 	paraglideMiddleware(event.request, ({ request, locale }) => {
 		event.request = request;
@@ -74,5 +91,6 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 export const handle: Handle = sequence(
 	handleParaglide,
 	handlePublicApiAvailability,
-	handleBetterAuth
+	handleBetterAuth,
+	handleSecurityHeaders
 );
