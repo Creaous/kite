@@ -15,6 +15,10 @@ This document explains how to set up your environment, how to prepare changes, a
 - [Database and OpenAPI Changes](#database-and-openapi-changes)
 - [Testing Guidance](#testing-guidance)
 - [Documentation Changes](#documentation-changes)
+- [Monorepo layout](#monorepo-layout)
+- [Versioning & release](#versioning--release)
+- [Tech Stack](#tech-stack)
+- [AI Assistance](#ai-assistance)
 
 ## Code of Conduct
 
@@ -239,3 +243,7 @@ Keeping docs current is part of done.
 - BullMQ + Redis (background jobs)
 - OpenAPI (auto-generated)
 - Vitest + Playwright for tests
+
+## AI Assistance
+
+AI is strongly discouraged to be used with this project. Commits written by 100% AI will be rejected everytime. Ensure that your commits are reviewed by humans prior to merging.
