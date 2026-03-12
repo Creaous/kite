@@ -29,6 +29,7 @@ jobs:
     env:
       IMAGE_REPOSITORY: ${{ vars.CONTAINER_IMAGE_REPOSITORY }}
       REGISTRY_HOST: ${{ vars.CONTAINER_REGISTRY_HOST }}
+      NIGHTLY_GIT_TAG: ${{ vars.NIGHTLY_GIT_TAG || 'nightly' }}
       DOCKER_HOST: tcp://172.17.0.1:2375
     steps:
       - name: Install release dependencies
@@ -128,10 +129,9 @@ jobs:
             secondary_tag="${image}:latest"
             channel="release"
           else
-            short_sha="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
-            version_label="nightly-${short_sha}"
+            version_label="${NIGHTLY_GIT_TAG}"
             primary_tag="${image}:nightly"
-            secondary_tag="${image}:nightly-${short_sha}"
+            secondary_tag=""
             channel="nightly"
           fi
 
@@ -142,6 +142,28 @@ jobs:
           echo "secondary_tag=$secondary_tag" >> "$GITHUB_OUTPUT"
           echo "version_label=$version_label" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Update moving nightly Git tag
+        if: steps.coords.outputs.channel == 'nightly'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          nightly_tag="${NIGHTLY_GIT_TAG}"
+          if [ -z "$nightly_tag" ]; then
+            echo "NIGHTLY_GIT_TAG must not be empty" >&2
+            exit 1
+          fi
+
+          git tag -fa "$nightly_tag" -m "Nightly build ${GITHUB_SHA}" "$GITHUB_SHA"
+
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            auth_header=( -c "http.extraHeader=Authorization: token ${GITHUB_TOKEN}" )
+          else
+            auth_header=()
+          fi
+
+          git "${auth_header[@]}" push origin "refs/tags/${nightly_tag}" --force
 
       - name: Log in to container registry
         shell: sh
@@ -161,24 +183,29 @@ jobs:
 
       - name: Build and push image
         id: build
-        shell: sh
+        shell: bash
         run: |
-          set -eu
-          docker buildx build \
-            --file ./apps/kite/Dockerfile \
-            --pull \
-            --push \
-            --attest type=provenance,mode=max \
-            --attest type=sbom \
-            --cache-from "type=registry,ref=${{ steps.coords.outputs.cache_ref }}" \
-            --cache-to "type=registry,ref=${{ steps.coords.outputs.cache_ref }},mode=max" \
-            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}" \
-            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --label "org.opencontainers.image.version=${{ steps.coords.outputs.version_label }}" \
-            --tag "${{ steps.coords.outputs.primary_tag }}" \
-            --tag "${{ steps.coords.outputs.secondary_tag }}" \
-            --metadata-file ./build-metadata.json \
-            .
+          set -euo pipefail
+
+          build_args=(
+            --file ./apps/kite/Dockerfile
+            --pull
+            --push
+            --attest type=provenance,mode=max
+            --attest type=sbom
+            --cache-from "type=registry,ref=${{ steps.coords.outputs.cache_ref }}"
+            --cache-to "type=registry,ref=${{ steps.coords.outputs.cache_ref }},mode=max"
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}"
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+            --label "org.opencontainers.image.version=${{ steps.coords.outputs.version_label }}"
+            --tag "${{ steps.coords.outputs.primary_tag }}"
+          )
+
+          if [ -n "${{ steps.coords.outputs.secondary_tag }}" ]; then
+            build_args+=(--tag "${{ steps.coords.outputs.secondary_tag }}")
+          fi
+
+          docker buildx build "${build_args[@]}" --metadata-file ./build-metadata.json .
 
           digest="$(jq -r '."containerimage.digest" // ."containerimage.descriptor".digest // empty' ./build-metadata.json)"
           if [ -z "$digest" ]; then
