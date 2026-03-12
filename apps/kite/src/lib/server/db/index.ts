@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { building } from '$app/environment';
+const { building } = await import('$app/environment').catch(() => ({ building: false }));
 
 import * as schemas from './schema';
 
