@@ -155,6 +155,11 @@ jobs:
             exit 1
           fi
 
+          committer_name="${GIT_COMMITTER_NAME:-${GITHUB_ACTOR:-kite-ci}}"
+          committer_email="${GIT_COMMITTER_EMAIL:-${committer_name}@users.codeguilds.org}"
+          git config user.name "$committer_name"
+          git config user.email "$committer_email"
+
           git tag -fa "$nightly_tag" -m "Nightly build ${GITHUB_SHA}" "$GITHUB_SHA"
 
           if [ -n "${GITHUB_TOKEN:-}" ]; then
