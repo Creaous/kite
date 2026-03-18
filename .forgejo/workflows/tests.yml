@@ -37,6 +37,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Drizzle migrations are up to date
+        working-directory: apps/kite
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/kite_ci
+        run: |
+          pnpm db:generate
+          if [ -n "$(git status --porcelain -- drizzle)" ]; then
+            echo "Drizzle migrations are out of date. Run 'pnpm --filter kite run db:generate' and commit the changes." >&2
+            echo
+            git status --short -- drizzle
+            git --no-pager diff -- drizzle || true
+            exit 1
+          fi
+
       - name: Lint workspace (also builds emails)
         run: pnpm lint
 
