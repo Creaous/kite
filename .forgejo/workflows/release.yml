@@ -258,6 +258,10 @@ jobs:
               echo "## Changes since $previous_tag"
               echo
               git log --no-merges --reverse --pretty='- %s (%h) - @%an' "$previous_tag..$current_tag"
+            elif [ "$channel" = "nightly" ]; then
+              echo "## Changes from the last 24 hours"
+              echo
+              git log --no-merges --reverse --since='24 hours ago' --pretty='- %s (%h) - @%an' "$GITHUB_SHA"
             else
               echo "## Changes"
               echo
