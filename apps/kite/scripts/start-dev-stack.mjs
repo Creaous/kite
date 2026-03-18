@@ -85,7 +85,9 @@ async function waitForAppReady() {
 		}
 
 		if (attempt === APP_READY_RETRIES) {
-			throw new Error(`App readiness check failed after ${APP_READY_RETRIES} attempts (${READY_URL})`);
+			throw new Error(
+				`App readiness check failed after ${APP_READY_RETRIES} attempts (${READY_URL})`
+			);
 		}
 
 		if (attempt % 10 === 0) {

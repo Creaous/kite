@@ -78,13 +78,17 @@ test.describe('Route smoke coverage', () => {
 		await expect(page.locator('main h1')).toBeVisible();
 	});
 
-	test('public share metadata API handles unknown code without server error', async ({ request }) => {
+	test('public share metadata API handles unknown code without server error', async ({
+		request
+	}) => {
 		const response = await request.get('/api/v1/public/shares/e2e-value');
 		expect(response.status()).toBeLessThan(500);
 		expect([200, 401, 404]).toContain(response.status());
 	});
 
-	test('public share download API handles unknown code without server error', async ({ request }) => {
+	test('public share download API handles unknown code without server error', async ({
+		request
+	}) => {
 		const response = await request.post('/api/v1/public/shares/e2e-value/download/e2e-upload', {
 			data: {}
 		});

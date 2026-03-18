@@ -5,7 +5,13 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-const REQUIRED_ENV_VARS = ['ORIGIN', 'DATABASE_URL', 'REDIS_URL', 'BETTER_AUTH_SECRET', 'TOKEN_SECRET'];
+const REQUIRED_ENV_VARS = [
+	'ORIGIN',
+	'DATABASE_URL',
+	'REDIS_URL',
+	'BETTER_AUTH_SECRET',
+	'TOKEN_SECRET'
+];
 const INVALID_SECRET_VALUES = new Set(['', 'default-build-secret', 'change-me']);
 
 function fail(message) {
