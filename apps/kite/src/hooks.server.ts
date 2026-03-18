@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -10,6 +12,9 @@ import { json } from '@sveltejs/kit';
 
 const API_PREFIX = '/api';
 const API_WHITELIST_PREFIXES = ['/api/auth', '/api/v1/uploads', '/api/v1/me/onboarding'] as const;
+const REQUEST_LOGGING_ENABLED =
+	process.env.REQUEST_LOGGING_ENABLED === 'true' ||
+	(process.env.NODE_ENV === 'production' && process.env.REQUEST_LOGGING_ENABLED !== 'false');
 
 function isWhitelistedApiPath(pathname: string) {
 	return API_WHITELIST_PREFIXES.some(
@@ -88,9 +93,54 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
+const handleRequestLogging: Handle = async ({ event, resolve }) => {
+	const startedAt = performance.now();
+	const requestId = event.request.headers.get('x-request-id')?.trim() || randomUUID();
+
+	try {
+		const response = await resolve(event);
+		response.headers.set('x-request-id', requestId);
+
+		if (REQUEST_LOGGING_ENABLED) {
+			const durationMs = Number((performance.now() - startedAt).toFixed(2));
+			console.log(
+				JSON.stringify({
+					type: 'http_request',
+					requestId,
+					method: event.request.method,
+					path: event.url.pathname,
+					status: response.status,
+					durationMs,
+					userId: event.locals.user?.id ?? null
+				})
+			);
+		}
+
+		return response;
+	} catch (error) {
+		if (REQUEST_LOGGING_ENABLED) {
+			const durationMs = Number((performance.now() - startedAt).toFixed(2));
+			console.error(
+				JSON.stringify({
+					type: 'http_request_error',
+					requestId,
+					method: event.request.method,
+					path: event.url.pathname,
+					durationMs,
+					userId: event.locals.user?.id ?? null,
+					error: error instanceof Error ? error.message : 'Unknown error'
+				})
+			);
+		}
+
+		throw error;
+	}
+};
+
 export const handle: Handle = sequence(
 	handleParaglide,
 	handlePublicApiAvailability,
 	handleBetterAuth,
+	handleRequestLogging,
 	handleSecurityHeaders
 );

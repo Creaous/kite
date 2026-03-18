@@ -6,3 +6,4 @@ Welcome to the Kite Wiki!
 
 - [Deployment](DEPLOYMENT.md)
 - [API](API.md)
+- [Architecture](ARCHITECTURE.md)

@@ -32,6 +32,12 @@ Deploying Kite is designed to be extremely easy!
    docker compose up -d
    ```
 
+   or start the full local stack with readiness checks:
+
+   ```bash
+   pnpm dev:stack
+   ```
+
 4. Run the app in dev mode:
 
    ```bash
@@ -75,6 +81,12 @@ While you can build Kite in production mode and deploy the server manually, it i
 
    ```bash
    docker compose up -d
+   ```
+
+4. Run pre-deploy validation checks before exposing traffic:
+
+   ```bash
+   pnpm predeploy:check
    ```
 
 The site will be available at `http://localhost:3000` (or the port you specified).

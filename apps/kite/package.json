@@ -7,6 +7,7 @@
 	"license": "GPL-3.0-only",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:stack": "node scripts/start-dev-stack.mjs",
 		"build": "svelte-kit sync && vite build",
 		"start": "node build",
 		"start:container": "node scripts/start-app.mjs",
@@ -28,6 +29,7 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
+		"predeploy:check": "node scripts/predeploy-check.mjs",
 		"auth:schema": "pnpx https://pkg.pr.new/better-auth/better-auth/@better-auth/cli@6913 generate --config src/lib/server/auth.ts --output src/lib/server/db/schema/auth.ts --yes",
 		"openapi:generate": "node scripts/generate-openapi.mjs"
 	},

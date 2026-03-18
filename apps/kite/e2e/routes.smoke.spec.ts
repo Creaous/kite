@@ -78,6 +78,30 @@ test.describe('Route smoke coverage', () => {
 		await expect(page.locator('main h1')).toBeVisible();
 	});
 
+	test('public share metadata API handles unknown code without server error', async ({ request }) => {
+		const response = await request.get('/api/v1/public/shares/e2e-value');
+		expect(response.status()).toBeLessThan(500);
+		expect([200, 401, 404]).toContain(response.status());
+	});
+
+	test('public share download API handles unknown code without server error', async ({ request }) => {
+		const response = await request.post('/api/v1/public/shares/e2e-value/download/e2e-upload', {
+			data: {}
+		});
+		expect(response.status()).toBeLessThan(500);
+		expect([401, 403, 404]).toContain(response.status());
+	});
+
+	test('onboarding API requires authentication', async ({ request }) => {
+		const response = await request.post('/api/v1/me/onboarding');
+		expect(response.status()).toBe(401);
+	});
+
+	test('admin users API enforces permission boundary', async ({ request }) => {
+		const response = await request.get('/api/v1/admin/users');
+		expect(response.status()).toBe(401);
+	});
+
 	test('covers every current page route', () => {
 		expect(PRIVATE_ROUTES).toHaveLength(4);
 		expect([
@@ -85,7 +109,11 @@ test.describe('Route smoke coverage', () => {
 			'/sign-in',
 			'/sign-up',
 			'/s/e2e-value',
-			'/r/e2e-value'
-		]).toHaveLength(8);
+			'/r/e2e-value',
+			'/api/v1/public/shares/e2e-value',
+			'/api/v1/public/shares/e2e-value/download/e2e-upload',
+			'/api/v1/me/onboarding',
+			'/api/v1/admin/users'
+		]).toHaveLength(12);
 	});
 });
