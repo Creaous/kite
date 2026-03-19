@@ -146,31 +146,29 @@
 		getInitialAlertSettings().shareFlowAlert?.type ?? 'info'
 	);
 
-	/*
-	 When the page `data` is invalidated (after a successful save) the top-level
-	 `data` prop updates but the `$state` variables above do not automatically
-	 reflect those new values. Add reactive updates so the form fields reflect the
-	 latest persisted settings after the load is refreshed.
-	*/
-	$: if (data?.brandingSettings) {
+	// Keep form state aligned with refreshed server data after successful saves.
+	$effect(() => {
+		if (!data?.brandingSettings) return;
 		const b = getInitialBranding();
 		brandingAppName = b.appName ?? m.app_name();
 		brandingTagline = b.tagline ?? '';
 		brandingLogoUrl = b.logoUrl ?? '';
 		brandingFaviconUrl = b.faviconUrl ?? '';
 		brandingDisableIndexing = Boolean(b.disableIndexing);
-	}
+	});
 
-	$: if (data?.authSettingsData) {
+	$effect(() => {
+		if (!data?.authSettingsData) return;
 		const a = getInitialAuthSettings();
 		registrationEnabled = Boolean(a.registrationEnabled);
 		anonymousTokensEnabled = Boolean(a.anonymousTokensEnabled);
 		publicApiEnabled = Boolean(a.publicApiEnabled ?? true);
 		availableSocialProviders = a.availableSocialProviders ?? [];
 		enabledSocialProviders = a.enabledSocialProviders ?? [];
-	}
+	});
 
-	$: if (data?.alertSettingsData) {
+	$effect(() => {
+		if (!data?.alertSettingsData) return;
 		const s = getInitialAlertSettings();
 		globalAnnouncementEnabled = Boolean(s.globalAnnouncement?.enabled);
 		globalAnnouncementMessage = s.globalAnnouncement?.message ?? '';
@@ -178,7 +176,7 @@
 		shareFlowAlertEnabled = Boolean(s.shareFlowAlert?.enabled);
 		shareFlowAlertMessage = s.shareFlowAlert?.message ?? '';
 		shareFlowAlertType = s.shareFlowAlert?.type ?? 'info';
-	}
+	});
 
 	let maintenanceQueues = $derived<MaintenanceQueueStatus[]>(data.maintenanceData?.queues ?? []);
 	let maintenanceRefreshedAt = $derived<string | null>(data.maintenanceData?.refreshedAt ?? null);
@@ -382,14 +380,19 @@
 		return buildAdminQuery(page, 'user-management', false);
 	}
 
+	function truncateUserId(id: string) {
+		if (id.length <= 16) return id;
+		return `${id.slice(0, 8)}…${id.slice(-7)}`;
+	}
+
 	type EnhanceResult = {
 		result: { type: string; data?: { errorMessage?: string; successMessage?: string } };
-		update: () => Promise<void>;
+		update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void>;
 	};
 
 	function handleActionResult(defaultError: string, defaultSuccess: string) {
 		return async ({ result, update }: EnhanceResult) => {
-			await update();
+			await update({ reset: false, invalidateAll: false });
 			if (result.type === 'failure') {
 				errorMessage = result.data?.errorMessage ?? defaultError;
 				successMessage = '';
@@ -576,7 +579,14 @@
 					<tbody>
 						{#each users as user (user.id)}
 							<tr>
-								<td class="font-mono text-xs">{user.id}</td>
+								<td class="font-mono text-xs">
+									<div class="group inline-block">
+										<span class="select-none group-hover:hidden">{truncateUserId(user.id)}</span>
+										<span class="hidden whitespace-nowrap select-text group-hover:inline">
+											{user.id}
+										</span>
+									</div>
+								</td>
 								<td>{user.name}</td>
 								<td class="font-mono text-xs sm:text-sm">{user.email}</td>
 								<td>

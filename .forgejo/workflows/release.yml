@@ -1,9 +1,11 @@
 name: Release
 
 on:
-  workflow_run:
-    workflows: ["Tests"]
-    types: [completed]
+  push:
+    branches:
+      - develop
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -14,7 +16,6 @@ concurrency:
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: docker
     timeout-minutes: 30
     permissions:
@@ -58,10 +59,72 @@ jobs:
           fi
 
           git "${auth_header[@]}" fetch --force --prune --tags origin
-          # When triggered by workflow_run, use the head SHA from the triggering workflow
-          sha="${GITHUB_SHA:-${{ github.event.workflow_run.head_sha }}}"
+          sha="${GITHUB_SHA}"
           git checkout -f "${sha}"
           git clean -fd
+
+      - name: Wait for Tests workflow on this commit
+        shell: bash
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          api_url="${FORGEJO_API_URL:-${GITHUB_API_URL:-${GITHUB_SERVER_URL%/}/api/v1}}"
+          token="${RELEASE_TOKEN:-${GITHUB_TOKEN:-}}"
+          if [ -z "$token" ]; then
+            echo "No API token available. Set RELEASE_TOKEN or ensure GITHUB_TOKEN is present." >&2
+            exit 1
+          fi
+
+          repo="${GITHUB_REPOSITORY}"
+          sha="${GITHUB_SHA}"
+          ref_name="${GITHUB_REF_NAME}"
+          max_attempts=80
+          sleep_seconds=15
+
+          echo "Waiting for Tests workflow to complete for sha=${sha} ref=${ref_name}"
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            response="$(curl -fsSL \
+              -H "Authorization: token ${token}" \
+              -H "Accept: application/json" \
+              "${api_url}/repos/${repo}/actions/runs?event=push&branch=${ref_name}&limit=50")"
+
+            run_json="$(printf '%s' "$response" | jq -c --arg sha "$sha" '
+              ((.workflow_runs // .runs // .data // [])
+                | map(select((.head_sha // .head_commit.id // "") == $sha and ((.name // .workflow_name // "") == "Tests")))
+                | sort_by(.id // .run_number // 0)
+                | last) // empty
+            ')"
+
+            if [ -z "$run_json" ]; then
+              echo "Attempt ${attempt}/${max_attempts}: no Tests run found yet for this SHA."
+              sleep "$sleep_seconds"
+              continue
+            fi
+
+            status="$(printf '%s' "$run_json" | jq -r '.status // .state // ""')"
+            conclusion="$(printf '%s' "$run_json" | jq -r '.conclusion // .result // ""')"
+            run_id="$(printf '%s' "$run_json" | jq -r '.id // "unknown"')"
+
+            echo "Attempt ${attempt}/${max_attempts}: Tests run id=${run_id} status=${status} conclusion=${conclusion}"
+
+            if [ "$status" = "completed" ] || [ "$status" = "success" ] || [ "$status" = "failure" ]; then
+              if [ "$conclusion" = "success" ] || [ "$status" = "success" ]; then
+                echo "Tests workflow passed for ${sha}."
+                exit 0
+              fi
+
+              echo "Tests workflow did not pass for ${sha} (conclusion=${conclusion}, status=${status})." >&2
+              exit 1
+            fi
+
+            sleep "$sleep_seconds"
+          done
+
+          echo "Timed out waiting for Tests workflow completion for ${sha}." >&2
+          exit 1
 
       - name: Verify immutable tag source
         if: startsWith(github.ref, 'refs/tags/v')
