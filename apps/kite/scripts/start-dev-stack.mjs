@@ -148,13 +148,13 @@ async function main() {
 	await waitForAppReady();
 	console.log(`[dev-stack] ready: app reachable at ${READY_URL}`);
 
-	const [workerCode, appCode] = await Promise.race([
+	const [exitedProcess, exitCode] = await Promise.race([
 		new Promise((resolve) => worker.on('exit', (code) => resolve(['worker', code]))),
 		new Promise((resolve) => app.on('exit', (code) => resolve(['app', code])))
 	]);
 
-	console.error(`[dev-stack] ${workerCode} process exited`);
-	process.exit(typeof appCode === 'number' ? appCode : 1);
+	console.error(`[dev-stack] ${exitedProcess} process exited`);
+	process.exit(typeof exitCode === 'number' ? exitCode : 1);
 }
 
 main().catch((error) => {

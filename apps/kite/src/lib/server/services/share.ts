@@ -110,6 +110,7 @@ export async function createShare(dto: CreateShareDTO) {
 		.from(uploads)
 		.where(and(inArray(uploads.id, requestedUploadIds), isNull(uploads.deletedAt)));
 	const uploadsById = new Map(existingUploads.map((upload) => [upload.id, upload]));
+	const shareUploadRows: { shareId: string; uploadId: string }[] = [];
 
 	for (const u of dto.uploads) {
 		if (!u || !u.uploadId) continue;
@@ -123,7 +124,11 @@ export async function createShare(dto: CreateShareDTO) {
 			}
 		}
 
-		await db.insert(shareUpload).values({ shareId: created.id, uploadId: u.uploadId });
+		shareUploadRows.push({ shareId: created.id, uploadId: u.uploadId });
+	}
+
+	if (shareUploadRows.length > 0) {
+		await db.insert(shareUpload).values(shareUploadRows);
 	}
 
 	const share = await getShareWithFiles(created.id);

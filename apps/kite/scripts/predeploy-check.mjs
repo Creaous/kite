@@ -61,15 +61,21 @@ async function assertRedisConnectivity() {
 		enableReadyCheck: true,
 		lazyConnect: true
 	});
+	let connected = false;
 
 	try {
 		await redis.connect();
+		connected = true;
 		const pong = await redis.ping();
 		if (pong !== 'PONG') {
 			fail('Redis ping did not return PONG');
 		}
 	} finally {
-		await redis.quit();
+		if (connected) {
+			await redis.quit().catch(() => redis.disconnect());
+		} else {
+			redis.disconnect();
+		}
 	}
 }
 

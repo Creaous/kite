@@ -38,19 +38,23 @@ export async function generateToken(
 	options?: { expiration?: string; purpose?: string }
 ) {
 	const exp = options?.expiration ?? '15m';
+	const secret = getTokenSecret();
 
 	const jwt = await new jose.SignJWT(payload)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(exp)
 		.setSubject(subject ?? String(payload['sub'] ?? ''))
-		.sign(getTokenSecret());
+		.sign(secret);
 
-	const verified = await jose.jwtVerify(jwt, getTokenSecret()).catch(() => null);
 	let expiresAt: Date;
-	if (verified && verified.payload && typeof verified.payload.exp === 'number') {
-		expiresAt = new Date(verified.payload.exp * 1000);
-	} else {
+	try {
+		const decoded = jose.decodeJwt(jwt);
+		expiresAt =
+			typeof decoded.exp === 'number'
+				? new Date(decoded.exp * 1000)
+				: new Date(Date.now() + 15 * 60 * 1000);
+	} catch {
 		expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 	}
 
