@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-navigation-without-resolve */
 	import Icon from '@iconify/svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -44,6 +45,36 @@
 
 	type AlertType = 'info' | 'success' | 'warning' | 'error';
 
+	type AuditLogEntry = {
+		id: string;
+		actorId: string | null;
+		action: string;
+		resourceType: string | null;
+		resourceId: string | null;
+		payload: {
+			request?: {
+				id?: string;
+				method?: string;
+				path?: string;
+				status?: number;
+				durationMs?: number;
+				ipAddress?: string | null;
+				userAgent?: string | null;
+				body?: unknown;
+			};
+			response?: {
+				body?: unknown;
+			};
+			resource?: {
+				type?: string | null;
+				id?: string | null;
+			};
+		} | null;
+		createdAt: string;
+		actorEmail: string | null;
+		actorName: string | null;
+	};
+
 	let { data } = $props();
 
 	let errorMessage = $state('');
@@ -51,6 +82,26 @@
 
 	let users = $derived<AdminUser[]>(data.users ?? []);
 	let total = $derived<number>(data.total ?? 0);
+	let userFilters = $derived<{ search: string; role: string; status: string }>(
+		data.userFilters ?? { search: '', role: '', status: '' }
+	);
+	let userPagination = $derived<{
+		page: number;
+		pageSize: number;
+		total: number;
+		totalPages: number;
+		hasPrev: boolean;
+		hasNext: boolean;
+	}>(
+		data.userPagination ?? {
+			page: 1,
+			pageSize: 25,
+			total: 0,
+			totalPages: 1,
+			hasPrev: false,
+			hasNext: false
+		}
+	);
 
 	function getInitialBranding() {
 		return data.brandingSettings ?? {};
@@ -97,6 +148,47 @@
 
 	let maintenanceQueues = $derived<MaintenanceQueueStatus[]>(data.maintenanceData?.queues ?? []);
 	let maintenanceRefreshedAt = $derived<string | null>(data.maintenanceData?.refreshedAt ?? null);
+	let auditLogs = $derived<AuditLogEntry[]>(data.auditLogsData?.logs ?? []);
+	let auditFilters = $derived<{
+		q: string;
+		action: string;
+		method: string;
+		path: string;
+		status: string;
+		actorId: string;
+		from: string;
+		to: string;
+	}>(
+		data.auditFilters ?? {
+			q: '',
+			action: '',
+			method: '',
+			path: '',
+			status: '',
+			actorId: '',
+			from: '',
+			to: ''
+		}
+	);
+	let auditPagination = $derived<{
+		page: number;
+		pageSize: number;
+		total: number;
+		totalPages: number;
+		hasPrev: boolean;
+		hasNext: boolean;
+	}>(
+		data.auditPagination ?? {
+			page: 1,
+			pageSize: 50,
+			total: 0,
+			totalPages: 1,
+			hasPrev: false,
+			hasNext: false
+		}
+	);
+	let auditDetailEntry = $state<AuditLogEntry | null>(null);
+	let auditDetailDialog = $state<HTMLDialogElement | null>(null);
 
 	const ALERT_TYPES: AlertType[] = ['info', 'success', 'warning', 'error'];
 
@@ -131,6 +223,131 @@
 		return new Date(value).toLocaleString();
 	}
 
+	function toPrettyJson(value: unknown) {
+		if (value === null || value === undefined) {
+			return '';
+		}
+
+		try {
+			return JSON.stringify(value, null, 2);
+		} catch {
+			return String(value);
+		}
+	}
+
+	function actionBadgeClass(action: string) {
+		if (action.includes('.failed') || action.includes('.error')) {
+			return 'border border-rose-300 bg-rose-100 text-rose-900';
+		}
+
+		if (action.startsWith('auth.')) {
+			return 'border border-sky-300 bg-sky-100 text-sky-900';
+		}
+
+		if (action.startsWith('share.')) {
+			return 'border border-emerald-300 bg-emerald-100 text-emerald-900';
+		}
+
+		if (action.startsWith('upload.')) {
+			return 'border border-violet-300 bg-violet-100 text-violet-900';
+		}
+
+		if (action.startsWith('share_request.')) {
+			return 'border border-cyan-300 bg-cyan-100 text-cyan-900';
+		}
+
+		if (action.startsWith('user.')) {
+			return 'border border-amber-300 bg-amber-100 text-amber-900';
+		}
+
+		if (action.startsWith('admin.settings.')) {
+			return 'border border-indigo-300 bg-indigo-100 text-indigo-900';
+		}
+
+		if (action.startsWith('admin.maintenance.')) {
+			return 'border border-lime-300 bg-lime-100 text-lime-900';
+		}
+
+		if (action.startsWith('http.')) {
+			return 'border border-slate-300 bg-slate-100 text-slate-900';
+		}
+
+		return 'border border-zinc-300 bg-zinc-100 text-zinc-900';
+	}
+
+	function buildAdminQuery(
+		page: number,
+		section: 'user-management' | 'audit-log',
+		isAuditPage: boolean
+	) {
+		const params: Array<[string, string]> = [];
+
+		if (userFilters.search) params.push(['search', userFilters.search]);
+		if (userFilters.role) params.push(['userRole', userFilters.role]);
+		if (userFilters.status) params.push(['userStatus', userFilters.status]);
+		params.push(['userPageSize', String(userPagination.pageSize)]);
+		params.push(['userPage', String(isAuditPage ? userPagination.page : page)]);
+
+		if (auditFilters.q) params.push(['auditQ', auditFilters.q]);
+		if (auditFilters.action) params.push(['auditAction', auditFilters.action]);
+		if (auditFilters.method) params.push(['auditMethod', auditFilters.method]);
+		if (auditFilters.path) params.push(['auditPath', auditFilters.path]);
+		if (auditFilters.status) params.push(['auditStatus', auditFilters.status]);
+		if (auditFilters.actorId) params.push(['auditActorId', auditFilters.actorId]);
+		if (auditFilters.from) params.push(['auditFrom', auditFilters.from]);
+		if (auditFilters.to) params.push(['auditTo', auditFilters.to]);
+		params.push(['auditPageSize', String(auditPagination.pageSize)]);
+		params.push(['auditPage', String(isAuditPage ? page : auditPagination.page)]);
+
+		const query = params
+			.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+			.join('&');
+
+		return `${resolve('/admin')}?${query}#${section}`;
+	}
+
+	function statusBadgeClass(status?: number) {
+		if (!status) return 'badge-outline';
+		if (status >= 500) return 'badge-error';
+		if (status >= 400) return 'badge-warning';
+		if (status >= 200) return 'badge-success';
+		return 'badge-outline';
+	}
+
+	function openAuditDetails(entry: AuditLogEntry) {
+		auditDetailEntry = entry;
+		auditDetailDialog?.showModal();
+	}
+
+	function closeAuditDetails() {
+		auditDetailDialog?.close();
+		auditDetailEntry = null;
+	}
+
+	function auditActorLabel(entry: AuditLogEntry) {
+		if (entry.actorName && entry.actorEmail) {
+			return `${entry.actorName} <${entry.actorEmail}>`;
+		}
+
+		if (entry.actorEmail) {
+			return entry.actorEmail;
+		}
+
+		if (entry.actorId) {
+			return entry.actorId;
+		}
+
+		return 'Anonymous/System';
+	}
+
+	function toAuditPageHref(page: number) {
+		return buildAdminQuery(page, 'audit-log', true);
+	}
+
+	function toUserPageHref(page: number) {
+		return buildAdminQuery(page, 'user-management', false);
+	}
+
 	type EnhanceResult = {
 		result: { type: string; data?: { errorMessage?: string; successMessage?: string } };
 		update: () => Promise<void>;
@@ -163,7 +380,7 @@
 	<p class="text-sm text-base-content/70">{m.admin_subtitle()}</p>
 </section>
 
-{#if errorMessage || data.loadErrors?.users || data.loadErrors?.branding || data.loadErrors?.authSettings || data.loadErrors?.alertSettings || data.loadErrors?.maintenance}
+{#if errorMessage || data.loadErrors?.users || data.loadErrors?.branding || data.loadErrors?.authSettings || data.loadErrors?.alertSettings || data.loadErrors?.maintenance || data.loadErrors?.auditLogs}
 	<div role="alert" class="mb-4 alert alert-error">
 		<span
 			>{errorMessage ||
@@ -171,7 +388,8 @@
 				data.loadErrors?.branding ||
 				data.loadErrors?.authSettings ||
 				data.loadErrors?.alertSettings ||
-				data.loadErrors?.maintenance}</span
+				data.loadErrors?.maintenance ||
+				data.loadErrors?.auditLogs}</span
 		>
 	</div>
 {/if}
@@ -232,21 +450,32 @@
 	</section>
 {/if}
 
-<section class="card border border-base-300 bg-base-100 shadow-sm">
+<section id="user-management" class="card border border-base-300 bg-base-100 shadow-sm">
 	<div class="card-body gap-4">
 		<form
 			method="GET"
-			action={resolve('/admin')}
+			action={`${resolve('/admin')}#user-management`}
 			class="flex flex-wrap items-end justify-between gap-3"
 		>
 			<fieldset class="fieldset w-full max-w-md">
 				<legend class="fieldset-legend">{m.admin_search_email()}</legend>
 				<div class="join w-full">
+					<input type="hidden" name="userPage" value="1" />
+					<input type="hidden" name="auditQ" value={auditFilters.q} />
+					<input type="hidden" name="auditAction" value={auditFilters.action} />
+					<input type="hidden" name="auditMethod" value={auditFilters.method} />
+					<input type="hidden" name="auditPath" value={auditFilters.path} />
+					<input type="hidden" name="auditStatus" value={auditFilters.status} />
+					<input type="hidden" name="auditActorId" value={auditFilters.actorId} />
+					<input type="hidden" name="auditFrom" value={auditFilters.from} />
+					<input type="hidden" name="auditTo" value={auditFilters.to} />
+					<input type="hidden" name="auditPage" value={String(auditPagination.page)} />
+					<input type="hidden" name="auditPageSize" value={String(auditPagination.pageSize)} />
 					<input
 						class="input-bordered input join-item w-full"
 						type="search"
 						name="search"
-						value={data.search ?? ''}
+						value={userFilters.search ?? ''}
 						placeholder={m.admin_search_placeholder()}
 					/>
 					<button class="btn join-item" type="submit">
@@ -254,6 +483,40 @@
 						{m.admin_search_action()}
 					</button>
 				</div>
+			</fieldset>
+			<fieldset class="fieldset">
+				<legend class="fieldset-legend">Role</legend>
+				<select class="select-bordered select select-sm" name="userRole" value={userFilters.role}>
+					<option value="">Any</option>
+					<option value="user">{m.admin_role_user()}</option>
+					<option value="trusted">{m.admin_role_trusted()}</option>
+					<option value="admin">{m.admin_role_admin()}</option>
+				</select>
+			</fieldset>
+			<fieldset class="fieldset">
+				<legend class="fieldset-legend">Status</legend>
+				<select
+					class="select-bordered select select-sm"
+					name="userStatus"
+					value={userFilters.status}
+				>
+					<option value="">Any</option>
+					<option value="active">{m.admin_status_active()}</option>
+					<option value="banned">{m.admin_status_banned()}</option>
+				</select>
+			</fieldset>
+			<fieldset class="fieldset">
+				<legend class="fieldset-legend">Page size</legend>
+				<select
+					class="select-bordered select select-sm"
+					name="userPageSize"
+					value={String(userPagination.pageSize)}
+				>
+					<option value="10">10</option>
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
 			</fieldset>
 			<div class="badge badge-outline">{m.admin_total({ total })}</div>
 		</form>
@@ -267,6 +530,7 @@
 				<table class="table table-zebra">
 					<thead>
 						<tr>
+							<th>ID</th>
 							<th>{m.admin_col_name()}</th>
 							<th>{m.admin_col_email()}</th>
 							<th>{m.admin_col_role()}</th>
@@ -278,6 +542,7 @@
 					<tbody>
 						{#each users as user (user.id)}
 							<tr>
+								<td class="font-mono text-xs">{user.id}</td>
 								<td>{user.name}</td>
 								<td class="font-mono text-xs sm:text-sm">{user.email}</td>
 								<td>
@@ -362,6 +627,27 @@
 						{/each}
 					</tbody>
 				</table>
+			</div>
+			<div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+				<div class="text-sm text-base-content/70">
+					Page {userPagination.page} of {userPagination.totalPages}
+				</div>
+				<div class="join">
+					<a
+						class="btn join-item btn-sm"
+						href={toUserPageHref(Math.max(1, userPagination.page - 1))}
+						aria-disabled={!userPagination.hasPrev}
+					>
+						Previous
+					</a>
+					<a
+						class="btn join-item btn-sm"
+						href={toUserPageHref(Math.min(userPagination.totalPages, userPagination.page + 1))}
+						aria-disabled={!userPagination.hasNext}
+					>
+						Next
+					</a>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -605,7 +891,7 @@
 	</form>
 </section>
 
-<section class="card mt-6 border border-base-300 bg-base-100 shadow-sm">
+<section id="maintenance" class="card mt-6 border border-base-300 bg-base-100 shadow-sm">
 	<div class="card-body gap-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div>
@@ -695,3 +981,367 @@
 		{/if}
 	</div>
 </section>
+
+<section id="audit-log" class="card mt-6 border border-base-300 bg-base-100 shadow-sm">
+	<div class="card-body gap-4">
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div>
+				<h2 class="card-title">Audit log</h2>
+				<p class="text-sm text-base-content/70">
+					Tracks request and authentication activity for investigations and compliance.
+				</p>
+			</div>
+			<div class="badge badge-outline badge-lg">{auditPagination.total} events</div>
+		</div>
+
+		<form method="GET" action={`${resolve('/admin')}#audit-log`} class="grid gap-3 lg:grid-cols-5">
+			<input type="hidden" name="search" value={userFilters.search ?? ''} />
+			<input type="hidden" name="auditPage" value="1" />
+
+			<label class="form-control">
+				<span class="label-text text-xs">Search</span>
+				<input
+					class="input-bordered input input-sm"
+					type="search"
+					name="auditQ"
+					value={auditFilters.q}
+					placeholder="Action, actor, path, resource"
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Action</span>
+				<input
+					class="input-bordered input input-sm"
+					type="text"
+					name="auditAction"
+					value={auditFilters.action}
+					placeholder="auth.sign_in"
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Method</span>
+				<select
+					class="select-bordered select select-sm"
+					name="auditMethod"
+					value={auditFilters.method}
+				>
+					<option value="">Any</option>
+					<option value="GET">GET</option>
+					<option value="POST">POST</option>
+					<option value="PUT">PUT</option>
+					<option value="PATCH">PATCH</option>
+					<option value="DELETE">DELETE</option>
+				</select>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Status</span>
+				<input
+					class="input-bordered input input-sm"
+					type="number"
+					name="auditStatus"
+					value={auditFilters.status}
+					min="100"
+					max="599"
+					placeholder="200"
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Path contains</span>
+				<input
+					class="input-bordered input input-sm"
+					type="text"
+					name="auditPath"
+					value={auditFilters.path}
+					placeholder="/api/auth"
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Actor ID</span>
+				<input
+					class="input-bordered input input-sm"
+					type="text"
+					name="auditActorId"
+					value={auditFilters.actorId}
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">From</span>
+				<input
+					class="input-bordered input input-sm"
+					type="datetime-local"
+					name="auditFrom"
+					value={auditFilters.from}
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">To</span>
+				<input
+					class="input-bordered input input-sm"
+					type="datetime-local"
+					name="auditTo"
+					value={auditFilters.to}
+				/>
+			</label>
+
+			<label class="form-control">
+				<span class="label-text text-xs">Page size</span>
+				<select
+					class="select-bordered select select-sm"
+					name="auditPageSize"
+					value={String(auditPagination.pageSize)}
+				>
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+					<option value="200">200</option>
+				</select>
+			</label>
+
+			<div class="flex items-end gap-2 lg:col-span-2">
+				<button class="btn btn-sm btn-primary" type="submit">
+					<Icon icon="mdi:filter-variant" class="h-4 w-4" />
+					Apply
+				</button>
+				<a class="btn btn-ghost btn-sm" href={resolve('/admin')}>Reset</a>
+			</div>
+		</form>
+
+		{#if auditLogs.length === 0}
+			<div class="alert">
+				<span>No audit entries have been recorded yet.</span>
+			</div>
+		{:else}
+			<div class="grid gap-3 sm:grid-cols-4">
+				<div class="rounded-xl border border-base-300 bg-base-200/30 p-3 shadow-sm">
+					<div class="text-xs opacity-70">Total entries</div>
+					<div class="text-lg font-semibold">{auditPagination.total}</div>
+				</div>
+				<div class="rounded-xl border border-base-300 bg-base-200/30 p-3 shadow-sm">
+					<div class="text-xs opacity-70">Page</div>
+					<div class="text-lg font-semibold">{auditPagination.page}</div>
+				</div>
+				<div class="rounded-xl border border-base-300 bg-base-200/30 p-3 shadow-sm">
+					<div class="text-xs opacity-70">Per page</div>
+					<div class="text-lg font-semibold">{auditPagination.pageSize}</div>
+				</div>
+				<div class="rounded-xl border border-base-300 bg-base-200/30 p-3 shadow-sm">
+					<div class="text-xs opacity-70">Pages</div>
+					<div class="text-lg font-semibold">{auditPagination.totalPages}</div>
+				</div>
+			</div>
+
+			<div class="overflow-x-auto rounded-xl border border-base-300">
+				<table class="table table-zebra table-sm">
+					<thead>
+						<tr>
+							<th>Time</th>
+							<th>Action</th>
+							<th>Actor</th>
+							<th>Request</th>
+							<th>Status</th>
+							<th>Resource</th>
+							<th>Details</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each auditLogs as entry (entry.id)}
+							<tr>
+								<td class="whitespace-nowrap">{formatDate(entry.createdAt)}</td>
+								<td>
+									<span class={`badge ${actionBadgeClass(entry.action)} font-mono text-[11px]`}
+										>{entry.action}</span
+									>
+								</td>
+								<td class="text-xs">{auditActorLabel(entry)}</td>
+								<td class="font-mono text-xs">
+									<div>{entry.payload?.request?.method ?? 'N/A'}</div>
+									<div class="max-w-56 truncate opacity-70">
+										{entry.payload?.request?.path ?? '-'}
+									</div>
+								</td>
+								<td>
+									<span class={`badge ${statusBadgeClass(entry.payload?.request?.status)}`}>
+										{entry.payload?.request?.status ?? '-'}
+									</span>
+								</td>
+								<td class="text-xs">
+									{entry.payload?.resource?.type ?? entry.resourceType ?? '-'}
+									{#if entry.resourceId}
+										<div
+											class="max-w-56 font-mono text-[11px] break-all whitespace-normal opacity-70"
+										>
+											{entry.resourceId}
+										</div>
+									{/if}
+									{#if entry.payload?.resource?.id && entry.payload?.resource?.id !== entry.resourceId}
+										<div
+											class="max-w-56 font-mono text-[11px] break-all whitespace-normal opacity-70"
+										>
+											{entry.payload.resource.id}
+										</div>
+									{/if}
+								</td>
+								<td>
+									<button
+										class="btn btn-outline btn-xs"
+										type="button"
+										onclick={() => openAuditDetails(entry)}
+									>
+										<Icon icon="mdi:file-search-outline" class="h-3 w-3" />
+										View
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div class="text-sm text-base-content/70">
+					Page {auditPagination.page} of {auditPagination.totalPages}
+				</div>
+				<div class="join">
+					<a
+						class="btn join-item btn-sm"
+						href={toAuditPageHref(Math.max(1, auditPagination.page - 1))}
+						aria-disabled={!auditPagination.hasPrev}
+					>
+						Previous
+					</a>
+					<a
+						class="btn join-item btn-sm"
+						href={toAuditPageHref(Math.min(auditPagination.totalPages, auditPagination.page + 1))}
+						aria-disabled={!auditPagination.hasNext}
+					>
+						Next
+					</a>
+				</div>
+			</div>
+		{/if}
+	</div>
+</section>
+
+<dialog bind:this={auditDetailDialog} class="modal" onclose={closeAuditDetails}>
+	<div class="modal-box max-h-[90vh] w-11/12 max-w-6xl overflow-hidden p-0">
+		{#if auditDetailEntry}
+			<div class="border-b border-base-300 bg-base-200/60 px-6 py-4">
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<div>
+						<div class="text-xs tracking-wide uppercase opacity-60">Audit event</div>
+						<div class="mt-1 flex flex-wrap items-center gap-2">
+							<span
+								class={`badge ${actionBadgeClass(auditDetailEntry.action)} font-mono text-[11px]`}
+								>{auditDetailEntry.action}</span
+							>
+							<span class="text-sm opacity-70">{formatDate(auditDetailEntry.createdAt)}</span>
+						</div>
+					</div>
+					<form method="dialog">
+						<button class="btn btn-ghost btn-sm" type="submit">
+							<Icon icon="mdi:close" class="h-4 w-4" />
+						</button>
+					</form>
+				</div>
+			</div>
+
+			<div class="grid max-h-[75vh] gap-4 overflow-auto p-6 lg:grid-cols-2">
+				<div class="space-y-3 rounded-xl border border-base-300 bg-base-100 p-4">
+					<h3 class="text-sm font-semibold tracking-wide uppercase opacity-70">Request</h3>
+					<div class="grid gap-2 text-sm">
+						<div>
+							<span class="opacity-60">ID:</span>
+							<span class="font-mono text-xs">{auditDetailEntry.payload?.request?.id ?? '-'}</span>
+						</div>
+						<div>
+							<span class="opacity-60">Method:</span>
+							<span class="font-mono text-xs"
+								>{auditDetailEntry.payload?.request?.method ?? '-'}</span
+							>
+						</div>
+						<div>
+							<span class="opacity-60">Path:</span>
+							<span class="font-mono text-xs">{auditDetailEntry.payload?.request?.path ?? '-'}</span
+							>
+						</div>
+						<div>
+							<span class="opacity-60">IP:</span>
+							<span class="font-mono text-xs"
+								>{auditDetailEntry.payload?.request?.ipAddress ?? '-'}</span
+							>
+						</div>
+						<div>
+							<span class="opacity-60">Duration:</span>
+							<span class="font-mono text-xs"
+								>{auditDetailEntry.payload?.request?.durationMs ?? '-'} ms</span
+							>
+						</div>
+					</div>
+					<div>
+						<div class="mb-1 text-[11px] font-semibold tracking-wide uppercase opacity-60">
+							Request body
+						</div>
+						<pre
+							class="max-h-64 overflow-auto rounded-lg border border-base-300 bg-base-200/60 p-3 font-mono text-[11px] leading-relaxed">{toPrettyJson(
+								auditDetailEntry.payload?.request?.body
+							) || 'No request body captured.'}</pre>
+					</div>
+				</div>
+
+				<div class="space-y-3 rounded-xl border border-base-300 bg-base-100 p-4">
+					<h3 class="text-sm font-semibold tracking-wide uppercase opacity-70">Response</h3>
+					<div class="grid gap-2 text-sm">
+						<div>
+							<span class="opacity-60">Status:</span>
+							<span
+								class={`ml-2 badge ${statusBadgeClass(auditDetailEntry.payload?.request?.status)}`}
+							>
+								{auditDetailEntry.payload?.request?.status ?? '-'}
+							</span>
+						</div>
+						<div>
+							<span class="opacity-60">Resource type:</span>
+							<span class="font-mono text-xs"
+								>{auditDetailEntry.payload?.resource?.type ??
+									auditDetailEntry.resourceType ??
+									'-'}</span
+							>
+						</div>
+						<div>
+							<span class="opacity-60">Resource ID:</span>
+							<span class="font-mono text-xs break-all whitespace-normal"
+								>{auditDetailEntry.payload?.resource?.id ??
+									auditDetailEntry.resourceId ??
+									'-'}</span
+							>
+						</div>
+						<div>
+							<span class="opacity-60">Actor:</span>
+							<span class="font-mono text-xs">{auditDetailEntry.actorId ?? 'anonymous/system'}</span
+							>
+						</div>
+					</div>
+					<div>
+						<div class="mb-1 text-[11px] font-semibold tracking-wide uppercase opacity-60">
+							Response body
+						</div>
+						<pre
+							class="max-h-64 overflow-auto rounded-lg border border-base-300 bg-base-200/60 p-3 font-mono text-[11px] leading-relaxed">{toPrettyJson(
+								auditDetailEntry.payload?.response?.body
+							) || 'No response body captured (e.g. HTML or empty body).'}</pre>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button type="submit">close</button>
+	</form>
+</dialog>

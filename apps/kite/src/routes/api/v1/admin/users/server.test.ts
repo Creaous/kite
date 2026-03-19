@@ -1,22 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
+import { db } from '$lib/server/db';
+import { user } from '$lib/server/db/schema';
 import { createRequestEvent } from '$lib/server/test/request-event';
 
-vi.mock('$lib/server/auth', () => ({
-	auth: {
-		api: {
-			listUsers: vi.fn()
-		}
-	}
-}));
-
 import { GET } from './+server';
-import { auth } from '$lib/server/auth';
 
 describe('GET /api/v1/admin/users', () => {
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
 	it('returns 401 for unauthenticated users', async () => {
 		const res = await GET(
 			createRequestEvent({
@@ -47,51 +37,63 @@ describe('GET /api/v1/admin/users', () => {
 		expect(body.error.code).toBe('FORBIDDEN');
 	});
 
-	it('returns users and normalizes query params', async () => {
-		const listUsersMock = vi.mocked(auth.api.listUsers);
-		listUsersMock.mockResolvedValueOnce({ users: [], total: 0 });
+	it('returns users with filters and pagination', async () => {
+		await db.insert(user).values([
+			{
+				id: 'admin-user-1',
+				email: 'admin-1@example.com',
+				name: 'Admin One',
+				emailVerified: true,
+				role: 'admin',
+				banned: false
+			},
+			{
+				id: 'trusted-user-1',
+				email: 'trusted-1@example.com',
+				name: 'Trusted One',
+				emailVerified: true,
+				role: 'trusted',
+				banned: true
+			},
+			{
+				id: 'basic-user-1',
+				email: 'basic-1@example.com',
+				name: 'Basic One',
+				emailVerified: true,
+				role: 'user',
+				banned: false
+			}
+		]);
 
 		const res = await GET(
 			createRequestEvent({
 				method: 'GET',
-				path: '/api/v1/admin/users?search=test%40example.com&limit=999&offset=-10',
+				path: '/api/v1/admin/users?search=trusted&role=trusted&status=banned&limit=1&offset=0',
 				authenticated: true
 			}) as never
 		);
 
 		expect(res.status).toBe(200);
-		expect(listUsersMock).toHaveBeenCalledWith(
-			expect.objectContaining({
-				query: expect.objectContaining({
-					searchValue: 'test@example.com',
-					limit: 100,
-					offset: 0,
-					searchField: 'email',
-					sortBy: 'createdAt',
-					sortDirection: 'desc'
-				})
-			})
-		);
-
 		const body = await res.json();
-		expect(body.data.users).toEqual([]);
-		expect(body.data.total).toBe(0);
+		expect(body.data.users).toHaveLength(1);
+		expect(body.data.users[0].id).toBe('trusted-user-1');
+		expect(body.data.total).toBe(1);
+		expect(body.data.limit).toBe(1);
+		expect(body.data.offset).toBe(0);
 	});
 
-	it('returns 401 when auth API reports unauthorized', async () => {
-		const listUsersMock = vi.mocked(auth.api.listUsers);
-		listUsersMock.mockRejectedValueOnce(new Error('UNAUTHORIZED'));
-
+	it('normalizes limit and offset values', async () => {
 		const res = await GET(
 			createRequestEvent({
 				method: 'GET',
-				path: '/api/v1/admin/users',
+				path: '/api/v1/admin/users?limit=999&offset=-10',
 				authenticated: true
 			}) as never
 		);
 
-		expect(res.status).toBe(401);
+		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(body.error.code).toBe('ADMIN_LIST_USERS_FAILED');
+		expect(body.data.limit).toBe(100);
+		expect(body.data.offset).toBe(0);
 	});
 });

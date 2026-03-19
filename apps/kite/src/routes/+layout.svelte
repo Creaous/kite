@@ -30,6 +30,7 @@
 	const shouldShowOnboarding = $derived(
 		Boolean(data.user && !data.userProfile?.onboardingCompleted && !onboardingDismissed)
 	);
+	const globalAnnouncement = $derived(data.alertSettings?.globalAnnouncement ?? null);
 
 	type NavItem = {
 		href: '/' | '/shares' | '/share-requests' | '/admin';
@@ -186,6 +187,14 @@
 			{/if}
 		</div>
 	</header>
+
+	{#if globalAnnouncement?.enabled && globalAnnouncement.message.trim()}
+		<div class="mx-auto w-full max-w-6xl px-4 md:px-6">
+			<div role="alert" class={`mt-4 alert alert-${globalAnnouncement.type}`}>
+				<span>{globalAnnouncement.message}</span>
+			</div>
+		</div>
+	{/if}
 
 	<main class="mx-auto w-full max-w-6xl p-4 md:p-6">{@render children()}</main>
 </div>

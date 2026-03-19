@@ -32,6 +32,7 @@ export const isEmailAndPasswordEnabled = process.env.ALLOW_EMAIL_AND_PASSWORD !=
 export const isAnonymousEnabled = process.env.ALLOW_ANONYMOUS_USERS === 'true';
 export const isPasskeyEnabled = process.env.ALLOW_PASSKEYS !== 'false';
 export const isInitialSetupEnabled = process.env.ENABLE_INITIAL_SETUP !== 'false';
+const trustProxy = process.env.TRUST_PROXY === 'true';
 
 const origin = process.env.ORIGIN;
 const authSecret = process.env.BETTER_AUTH_SECRET;
@@ -137,7 +138,13 @@ export const auth = betterAuth({
 		}
 	},
 	advanced: {
-		disableOriginCheck: process.env.NODE_ENV === 'development' ? true : false
+		disableOriginCheck: process.env.NODE_ENV === 'development' ? true : false,
+		trustedProxyHeaders: trustProxy,
+		ipAddress: {
+			ipAddressHeaders: trustProxy
+				? ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip']
+				: ['x-forwarded-for']
+		}
 	},
 	secret: authSecret && authSecret !== 'default-build-secret' ? authSecret : 'default-build-secret',
 	socialProviders,

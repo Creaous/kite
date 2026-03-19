@@ -105,7 +105,7 @@ function normalizeAuthSettingsDefaults(
 				? defaults.anonymousTokensEnabled
 				: false,
 		publicApiEnabled:
-			typeof defaults.publicApiEnabled === 'boolean' ? defaults.publicApiEnabled : true,
+			typeof defaults.publicApiEnabled === 'boolean' ? defaults.publicApiEnabled : false,
 		availableSocialProviders: Array.isArray(defaults.availableSocialProviders)
 			? defaults.availableSocialProviders
 			: []

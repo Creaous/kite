@@ -14,6 +14,7 @@ services:
       DB_MIGRATE_MAX_ATTEMPTS: ${DB_MIGRATE_MAX_ATTEMPTS:-5}
       ORIGIN: ${ORIGIN:?ORIGIN is required}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:

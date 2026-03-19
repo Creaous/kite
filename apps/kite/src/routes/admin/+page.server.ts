@@ -22,10 +22,57 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	const search = event.url.searchParams.get('search')?.trim() ?? '';
-	const usersQuery = new URLSearchParams({ limit: '100' });
+	const userRole = event.url.searchParams.get('userRole')?.trim() ?? '';
+	const userStatus = event.url.searchParams.get('userStatus')?.trim() ?? '';
+	const userPageRaw = Number(event.url.searchParams.get('userPage') ?? 1);
+	const userPageSizeRaw = Number(event.url.searchParams.get('userPageSize') ?? 25);
+	const userPage = Number.isFinite(userPageRaw) ? Math.max(1, Math.floor(userPageRaw)) : 1;
+	const userPageSize = Number.isFinite(userPageSizeRaw)
+		? Math.min(100, Math.max(10, Math.floor(userPageSizeRaw)))
+		: 25;
+	const userOffset = (userPage - 1) * userPageSize;
+	const auditQuery = event.url.searchParams.get('auditQ')?.trim() ?? '';
+	const auditAction = event.url.searchParams.get('auditAction')?.trim() ?? '';
+	const auditMethod = event.url.searchParams.get('auditMethod')?.trim() ?? '';
+	const auditPath = event.url.searchParams.get('auditPath')?.trim() ?? '';
+	const auditStatus = event.url.searchParams.get('auditStatus')?.trim() ?? '';
+	const auditActorId = event.url.searchParams.get('auditActorId')?.trim() ?? '';
+	const auditFrom = event.url.searchParams.get('auditFrom')?.trim() ?? '';
+	const auditTo = event.url.searchParams.get('auditTo')?.trim() ?? '';
+	const auditPageRaw = Number(event.url.searchParams.get('auditPage') ?? 1);
+	const auditPageSizeRaw = Number(event.url.searchParams.get('auditPageSize') ?? 50);
+	const auditPage = Number.isFinite(auditPageRaw) ? Math.max(1, Math.floor(auditPageRaw)) : 1;
+	const auditPageSize = Number.isFinite(auditPageSizeRaw)
+		? Math.min(200, Math.max(10, Math.floor(auditPageSizeRaw)))
+		: 50;
+	const auditOffset = (auditPage - 1) * auditPageSize;
+
+	const usersQuery = new URLSearchParams({
+		limit: String(userPageSize),
+		offset: String(userOffset)
+	});
 	if (search) {
 		usersQuery.set('search', search);
 	}
+	if (userRole) {
+		usersQuery.set('role', userRole);
+	}
+	if (userStatus) {
+		usersQuery.set('status', userStatus);
+	}
+
+	const auditLogsQuery = new URLSearchParams({
+		limit: String(auditPageSize),
+		offset: String(auditOffset)
+	});
+	if (auditQuery) auditLogsQuery.set('q', auditQuery);
+	if (auditAction) auditLogsQuery.set('action', auditAction);
+	if (auditMethod) auditLogsQuery.set('method', auditMethod);
+	if (auditPath) auditLogsQuery.set('path', auditPath);
+	if (auditStatus) auditLogsQuery.set('status', auditStatus);
+	if (auditActorId) auditLogsQuery.set('actorId', auditActorId);
+	if (auditFrom) auditLogsQuery.set('from', auditFrom);
+	if (auditTo) auditLogsQuery.set('to', auditTo);
 
 	const [
 		updateStatus,
@@ -33,22 +80,62 @@ export const load: PageServerLoad = async (event) => {
 		brandingResult,
 		authSettingsResult,
 		alertSettingsResult,
-		maintenanceResult
+		maintenanceResult,
+		auditLogsResult
 	] = await Promise.all([
 		getUpdateStatus(),
 		apiJson(event, `/api/v1/admin/users?${usersQuery.toString()}`),
 		apiJson(event, '/api/v1/admin/branding'),
 		apiJson(event, '/api/v1/admin/auth-settings'),
 		apiJson(event, '/api/v1/admin/alert-settings'),
-		apiJson(event, '/api/v1/admin/maintenance')
+		apiJson(event, '/api/v1/admin/maintenance'),
+		apiJson(event, `/api/v1/admin/audit-logs?${auditLogsQuery.toString()}`)
 	]);
+
+	const auditTotal = auditLogsResult.response.ok
+		? Number(auditLogsResult.body?.data?.total ?? 0)
+		: 0;
+	const auditTotalPages = Math.max(1, Math.ceil(auditTotal / auditPageSize));
+	const userTotal = usersResult.response.ok ? Number(usersResult.body?.data?.total ?? 0) : 0;
+	const userTotalPages = Math.max(1, Math.ceil(userTotal / userPageSize));
 
 	return {
 		user: event.locals.user,
 		updateStatus,
 		search,
+		userFilters: {
+			search,
+			role: userRole,
+			status: userStatus
+		},
+		userPagination: {
+			page: Math.min(userPage, userTotalPages),
+			pageSize: userPageSize,
+			total: userTotal,
+			totalPages: userTotalPages,
+			hasPrev: userPage > 1,
+			hasNext: userPage < userTotalPages
+		},
+		auditFilters: {
+			q: auditQuery,
+			action: auditAction,
+			method: auditMethod,
+			path: auditPath,
+			status: auditStatus,
+			actorId: auditActorId,
+			from: auditFrom,
+			to: auditTo
+		},
+		auditPagination: {
+			page: Math.min(auditPage, auditTotalPages),
+			pageSize: auditPageSize,
+			total: auditTotal,
+			totalPages: auditTotalPages,
+			hasPrev: auditPage > 1,
+			hasNext: auditPage < auditTotalPages
+		},
 		users: usersResult.response.ok ? (usersResult.body?.data?.users ?? []) : [],
-		total: usersResult.response.ok ? (usersResult.body?.data?.total ?? 0) : 0,
+		total: userTotal,
 		brandingSettings: brandingResult.response.ok ? (brandingResult.body?.data ?? null) : null,
 		authSettingsData: authSettingsResult.response.ok
 			? (authSettingsResult.body?.data ?? null)
@@ -57,6 +144,7 @@ export const load: PageServerLoad = async (event) => {
 			? (alertSettingsResult.body?.data ?? null)
 			: null,
 		maintenanceData: maintenanceResult.response.ok ? (maintenanceResult.body?.data ?? null) : null,
+		auditLogsData: auditLogsResult.response.ok ? (auditLogsResult.body?.data ?? null) : null,
 		loadErrors: {
 			users: usersResult.response.ok
 				? ''
@@ -72,7 +160,10 @@ export const load: PageServerLoad = async (event) => {
 				: (alertSettingsResult.body?.error?.message ?? 'Unable to load alert settings.'),
 			maintenance: maintenanceResult.response.ok
 				? ''
-				: (maintenanceResult.body?.error?.message ?? 'Unable to load maintenance status.')
+				: (maintenanceResult.body?.error?.message ?? 'Unable to load maintenance status.'),
+			auditLogs: auditLogsResult.response.ok
+				? ''
+				: (auditLogsResult.body?.error?.message ?? 'Unable to load audit logs.')
 		}
 	};
 };

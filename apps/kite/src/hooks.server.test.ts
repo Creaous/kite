@@ -34,7 +34,7 @@ vi.mock('$lib/paraglide/server', () => ({
 	}
 }));
 
-import { handlePublicApiAvailability as handle } from './hooks.server';
+import { __test_only, handlePublicApiAvailability as handle } from './hooks.server';
 
 function createEvent(pathname: string, isSubRequest = false) {
 	const request = new Request(`http://localhost${pathname}`);
@@ -88,5 +88,56 @@ describe('hooks public API guard', () => {
 		expect(response.status).toBe(503);
 		const body = await response.json();
 		expect(body.error.code).toBe('PUBLIC_API_DISABLED');
+	});
+});
+
+describe('hooks audit helper mapping', () => {
+	it('maps sign-in form action to auth action and resource', () => {
+		const searchParams = new URLSearchParams('/email=');
+
+		expect(__test_only.deriveRouteAction('/sign-in', 'POST', 200, searchParams)).toBe(
+			'auth.sign_in.email'
+		);
+		expect(
+			__test_only.deriveResourceInfo('/sign-in', searchParams, { email: 'user@example.com' }, null)
+		).toEqual({ type: 'auth', id: '/api/auth/sign-in/email' });
+	});
+
+	it('maps admin alert form action to settings resource', () => {
+		const searchParams = new URLSearchParams('/saveAlertSettings=');
+
+		expect(__test_only.deriveRouteAction('/admin', 'POST', 200, searchParams)).toBe(
+			'admin.settings.alert.updated'
+		);
+		expect(
+			__test_only.deriveResourceInfo(
+				'/admin',
+				searchParams,
+				{ globalAnnouncementEnabled: 'on' },
+				null
+			)
+		).toEqual({ type: 'settings', id: '/api/v1/admin/alert-settings' });
+	});
+
+	it('expands indexed action data payload to readable object', () => {
+		const expanded = __test_only.expandActionResultData({
+			type: 'success',
+			status: 200,
+			data: '[{"success":1,"successMessage":2},true,"Alert settings saved."]'
+		}) as {
+			data: { success: boolean; successMessage: string };
+		};
+
+		expect(expanded.data).toEqual({ success: true, successMessage: 'Alert settings saved.' });
+	});
+
+	it('parses form-encoded bodies into key-value payloads', () => {
+		const parsed = __test_only.parseFormEncodedBody(
+			'globalAnnouncementEnabled=on&globalAnnouncementMessage=test23&shareFlowAlertMessage='
+		) as Record<string, unknown>;
+
+		expect(parsed.globalAnnouncementEnabled).toBe('on');
+		expect(parsed.globalAnnouncementMessage).toBe('test23');
+		expect(parsed.shareFlowAlertMessage).toBe('');
 	});
 });
