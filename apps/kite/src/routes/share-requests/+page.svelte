@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Icon from '@iconify/svelte';
+	import ToastViewport from '$lib/components/ToastViewport.svelte';
+	import { createToastState } from '$lib/components/toast/toast-state.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 
 	let { data } = $props();
@@ -40,8 +42,7 @@
 
 	let activeTab = $state<'create' | 'manage'>('create');
 
-	let errorMessage = $derived(data.errorMessage ?? '');
-	let successMessage = $state('');
+	const toastState = createToastState();
 
 	let actionId = $state('');
 	let requestCode = $state('');
@@ -187,13 +188,23 @@
 	function copyRequestLink(code: string) {
 		const url = `${window.location.origin}/r/${code}`;
 		void navigator.clipboard.writeText(url);
-		successMessage = m.request_link_copied();
+		toastState.push('success', m.request_link_copied());
 	}
+
+	$effect(() => {
+		const loadErrorMessage = data.errorMessage ?? '';
+
+		toastState.pushLoadError(loadErrorMessage);
+	});
 
 	onMount(() => {
 		requesterName = getDefaultRequesterName();
 		requesterEmail = getDefaultRequesterEmail();
 		hideRequesterEmail = false;
+	});
+
+	onDestroy(() => {
+		toastState.destroy();
 	});
 </script>
 
@@ -208,12 +219,7 @@
 	</p>
 </section>
 
-{#if errorMessage}
-	<div role="alert" class="mb-4 alert alert-error"><span>{errorMessage}</span></div>
-{/if}
-{#if successMessage}
-	<div role="alert" class="mb-4 alert alert-success"><span>{successMessage}</span></div>
-{/if}
+<ToastViewport toasts={toastState.toasts} onDismiss={toastState.dismiss} />
 
 <div class="tabs-boxed mb-4 tabs w-fit">
 	<button
@@ -243,20 +249,19 @@
 				action="?/create"
 				use:enhance={() => {
 					if (!canCreateRequests) {
-						errorMessage = m.request_create_permission_denied();
+						toastState.push('error', m.request_create_permission_denied());
 						return;
 					}
 
 					if (!title.trim()) {
-						errorMessage = m.form_title_required();
+						toastState.push('error', m.form_title_required());
 						return;
 					}
 
 					return async ({ result }) => {
 						if (result.type === 'success' && result.data?.success) {
 							const data = result.data?.data as ShareRequestItem;
-							successMessage = m.request_created_code({ code: data.code });
-							errorMessage = '';
+							toastState.push('success', m.request_created_code({ code: data.code }));
 							shareRequests.unshift(data);
 							requestCode = data.code;
 							// clear
@@ -271,8 +276,11 @@
 							return;
 						}
 
-						const error = 'data' in result ? result.data?.errorMessage : null;
-						errorMessage = error ?? m.request_create_failed();
+						const error =
+							'data' in result && typeof result.data?.errorMessage === 'string'
+								? result.data.errorMessage
+								: null;
+						toastState.push('error', error ?? m.request_create_failed());
 					};
 				}}
 			>
@@ -478,8 +486,7 @@
 				// to-do: figure out why calling update() removes the id but not the others
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data?.success) {
-						successMessage = m.request_update_success();
-						errorMessage = '';
+						toastState.push('success', m.request_update_success());
 						shareRequests = shareRequests.map((shareRequest) =>
 							shareRequest.id === actionId ? (result.data?.data as ShareRequestItem) : shareRequest
 						);
@@ -487,8 +494,11 @@
 						return;
 					}
 
-					const error = 'data' in result ? result.data?.errorMessage : null;
-					errorMessage = error ?? m.request_update_failed();
+					const error =
+						'data' in result && typeof result.data?.errorMessage === 'string'
+							? result.data.errorMessage
+							: null;
+					toastState.push('error', error ?? m.request_update_failed());
 				};
 			}}
 		>
@@ -611,15 +621,17 @@
 					formData.set('id', actionId);
 					return async ({ result }) => {
 						if (result.type === 'success' && result.data?.success) {
-							successMessage = m.request_delete_success();
-							errorMessage = '';
+							toastState.push('success', m.request_delete_success());
 							shareRequests = shareRequests.filter((shareRequest) => shareRequest.id !== actionId);
 							getDialog(DELETE_DIALOG_ID)?.close();
 							return;
 						}
 
-						const error = 'data' in result ? result.data?.errorMessage : null;
-						errorMessage = error ?? m.request_delete_failed();
+						const error =
+							'data' in result && typeof result.data?.errorMessage === 'string'
+								? result.data.errorMessage
+								: null;
+						toastState.push('error', error ?? m.request_delete_failed());
 					};
 				}}
 			>
@@ -688,7 +700,7 @@
 					use:enhance={({ formData }) => {
 						const recipients = getRecipientsForSend();
 						if (recipients.length === 0) {
-							errorMessage = m.request_email_recipient_required();
+							toastState.push('error', m.request_email_recipient_required());
 							return;
 						}
 
@@ -698,14 +710,19 @@
 						// to-do: figure out why calling update() removes the id but not the others
 						return async ({ result }) => {
 							if (result.type === 'success' && result.data?.success) {
-								successMessage = m.request_email_sent_count({ count: recipients.length });
-								errorMessage = '';
+								toastState.push(
+									'success',
+									m.request_email_sent_count({ count: recipients.length })
+								);
 								getDialog(EMAIL_DIALOG_ID)?.close();
 								return;
 							}
 
-							const error = 'data' in result ? result.data?.errorMessage : null;
-							errorMessage = error ?? m.request_email_send_failed();
+							const error =
+								'data' in result && typeof result.data?.errorMessage === 'string'
+									? result.data.errorMessage
+									: null;
+							toastState.push('error', error ?? m.request_email_send_failed());
 						};
 					}}
 				>

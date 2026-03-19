@@ -4,7 +4,10 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ToastViewport from '$lib/components/ToastViewport.svelte';
+	import { createToastState, type ToastType } from '$lib/components/toast/toast-state.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { onDestroy } from 'svelte';
 
 	type AdminUser = {
 		id: string;
@@ -77,8 +80,7 @@
 
 	let { data } = $props();
 
-	let errorMessage = $state('');
-	let successMessage = $state('');
+	const toastState = createToastState();
 
 	let users = $derived<AdminUser[]>(data.users ?? []);
 	let total = $derived<number>(data.total ?? 0);
@@ -212,7 +214,7 @@
 	}>(
 		data.auditPagination ?? {
 			page: 1,
-			pageSize: 50,
+			pageSize: 25,
 			total: 0,
 			totalPages: 1,
 			hasPrev: false,
@@ -380,6 +382,27 @@
 		return buildAdminQuery(page, 'user-management', false);
 	}
 
+	function pushToast(type: ToastType, message: string) {
+		toastState.push(type, message);
+	}
+
+	$effect(() => {
+		const loadErrorMessage =
+			data.loadErrors?.users ||
+			data.loadErrors?.branding ||
+			data.loadErrors?.authSettings ||
+			data.loadErrors?.alertSettings ||
+			data.loadErrors?.maintenance ||
+			data.loadErrors?.auditLogs ||
+			'';
+
+		toastState.pushLoadError(loadErrorMessage);
+	});
+
+	onDestroy(() => {
+		toastState.destroy();
+	});
+
 	function truncateUserId(id: string) {
 		if (id.length <= 16) return id;
 		return `${id.slice(0, 8)}…${id.slice(-7)}`;
@@ -394,14 +417,12 @@
 		return async ({ result, update }: EnhanceResult) => {
 			await update({ reset: false, invalidateAll: false });
 			if (result.type === 'failure') {
-				errorMessage = result.data?.errorMessage ?? defaultError;
-				successMessage = '';
+				pushToast('error', result.data?.errorMessage ?? defaultError);
 				return;
 			}
 
 			if (result.type === 'success') {
-				errorMessage = '';
-				successMessage = result.data?.successMessage ?? defaultSuccess;
+				pushToast('success', result.data?.successMessage ?? defaultSuccess);
 				await invalidateAll();
 			}
 		};
@@ -417,23 +438,7 @@
 	<p class="text-sm text-base-content/70">{m.admin_subtitle()}</p>
 </section>
 
-{#if errorMessage || data.loadErrors?.users || data.loadErrors?.branding || data.loadErrors?.authSettings || data.loadErrors?.alertSettings || data.loadErrors?.maintenance || data.loadErrors?.auditLogs}
-	<div role="alert" class="mb-4 alert alert-error">
-		<span
-			>{errorMessage ||
-				data.loadErrors?.users ||
-				data.loadErrors?.branding ||
-				data.loadErrors?.authSettings ||
-				data.loadErrors?.alertSettings ||
-				data.loadErrors?.maintenance ||
-				data.loadErrors?.auditLogs}</span
-		>
-	</div>
-{/if}
-
-{#if successMessage}
-	<div role="alert" class="mb-4 alert alert-success"><span>{successMessage}</span></div>
-{/if}
+<ToastViewport toasts={toastState.toasts} onDismiss={toastState.dismiss} />
 
 {#if data.updateStatus}
 	<section class="card mb-6 border border-base-300 bg-base-100 shadow-sm">

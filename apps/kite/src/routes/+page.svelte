@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Icon from '@iconify/svelte';
+	import ToastViewport from '$lib/components/ToastViewport.svelte';
+	import { createToastState } from '$lib/components/toast/toast-state.svelte';
 	import UnifiedUploadInterface, {
 		type UploadedFile
 	} from '$lib/components/upload/UnifiedUploadInterface.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props();
 
@@ -18,8 +21,7 @@
 	let maxDownloads = $state(0);
 	let uploads = $state<UploadedFile[]>([]);
 	let isSubmitting = $state(false);
-	let errorMessage = $state('');
-	let successMessage = $state('');
+	const toastState = createToastState();
 	let createdCode = $state('');
 	let generatedPassword = $state('');
 	const shareFlowAlert = $derived(data.alertSettings?.shareFlowAlert ?? null);
@@ -56,11 +58,17 @@
 	const uploadsPayload = $derived(
 		JSON.stringify(uploads.map((file) => ({ uploadId: file.uploadId, name: file.relativePath })))
 	);
+
+	onDestroy(() => {
+		toastState.destroy();
+	});
 </script>
 
 <svelte:head>
 	<title>{m.page_title_create_share()} | {data.branding?.appName || m.app_name()}</title>
 </svelte:head>
+
+<ToastViewport toasts={toastState.toasts} onDismiss={toastState.dismiss} />
 
 <div class="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
 	<section class="card border border-base-300 bg-base-100 shadow-sm">
@@ -69,13 +77,11 @@
 			class="card-body gap-4"
 			use:enhance={() => {
 				if (uploads.length === 0) {
-					errorMessage = m.share_upload_required();
+					toastState.push('error', m.share_upload_required());
 					return;
 				}
 
 				generatedPassword = password || '';
-				errorMessage = '';
-				successMessage = '';
 				isSubmitting = true;
 
 				return async ({ result, update }) => {
@@ -83,13 +89,16 @@
 					if (result.type === 'success' && result.data?.success) {
 						const code = (result.data?.data as { code?: string } | undefined)?.code;
 						createdCode = typeof code === 'string' ? code : '';
-						successMessage = m.share_create_success();
+						toastState.push('success', m.share_create_success());
 					}
 
 					if (result.type === 'failure') {
-						const actionError = (result.data as { errorMessage?: string } | undefined)
-							?.errorMessage;
-						errorMessage = actionError ?? m.share_create_failed();
+						const actionError =
+							typeof (result.data as { errorMessage?: unknown } | undefined)?.errorMessage ===
+							'string'
+								? (result.data as { errorMessage?: string }).errorMessage
+								: null;
+						toastState.push('error', actionError ?? m.share_create_failed());
 					}
 
 					isSubmitting = false;
@@ -206,13 +215,6 @@
 					{isSubmitting ? m.action_creating() : m.share_create_action()}
 				</button>
 			</div>
-
-			{#if errorMessage}
-				<div role="alert" class="alert alert-error"><span>{errorMessage}</span></div>
-			{/if}
-			{#if successMessage}
-				<div role="alert" class="alert alert-success"><span>{successMessage}</span></div>
-			{/if}
 		</form>
 	</section>
 

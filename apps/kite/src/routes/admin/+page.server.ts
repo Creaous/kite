@@ -40,11 +40,11 @@ export const load: PageServerLoad = async (event) => {
 	const auditFrom = event.url.searchParams.get('auditFrom')?.trim() ?? '';
 	const auditTo = event.url.searchParams.get('auditTo')?.trim() ?? '';
 	const auditPageRaw = Number(event.url.searchParams.get('auditPage') ?? 1);
-	const auditPageSizeRaw = Number(event.url.searchParams.get('auditPageSize') ?? 50);
+	const auditPageSizeRaw = Number(event.url.searchParams.get('auditPageSize') ?? 25);
 	const auditPage = Number.isFinite(auditPageRaw) ? Math.max(1, Math.floor(auditPageRaw)) : 1;
 	const auditPageSize = Number.isFinite(auditPageSizeRaw)
 		? Math.min(200, Math.max(10, Math.floor(auditPageSizeRaw)))
-		: 50;
+		: 25;
 	const auditOffset = (auditPage - 1) * auditPageSize;
 
 	const usersQuery = new URLSearchParams({

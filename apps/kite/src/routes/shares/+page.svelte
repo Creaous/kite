@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Icon from '@iconify/svelte';
+	import ToastViewport from '$lib/components/ToastViewport.svelte';
+	import { createToastState } from '$lib/components/toast/toast-state.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props();
 
@@ -26,8 +29,7 @@
 
 	let shares = $derived<ShareListItem[]>(data.shares ?? []);
 
-	let errorMessage = $derived(data.errorMessage ?? '');
-	let successMessage = $state('');
+	const toastState = createToastState();
 
 	const EDIT_DIALOG_ID = 'share-edit-dialog';
 	const DELETE_DIALOG_ID = 'share-delete-dialog';
@@ -75,13 +77,22 @@
 	function copyShareLink(code: string) {
 		const url = `${window.location.origin}/s/${code}`;
 		void navigator.clipboard.writeText(url);
-		successMessage = m.share_link_copied();
+		toastState.push('success', m.share_link_copied());
 	}
 
 	function formatDate(value: string | null) {
 		if (!value) return m.common_never();
 		return new Date(value).toLocaleString();
 	}
+
+	$effect(() => {
+		const loadErrorMessage = data.errorMessage ?? '';
+		toastState.pushLoadError(loadErrorMessage);
+	});
+
+	onDestroy(() => {
+		toastState.destroy();
+	});
 </script>
 
 <svelte:head>
@@ -93,12 +104,7 @@
 	<p class="text-sm text-base-content/70">{m.shares_subtitle()}</p>
 </section>
 
-{#if errorMessage}
-	<div role="alert" class="mb-4 alert alert-error"><span>{errorMessage}</span></div>
-{/if}
-{#if successMessage}
-	<div role="alert" class="mb-4 alert alert-success"><span>{successMessage}</span></div>
-{/if}
+<ToastViewport toasts={toastState.toasts} onDismiss={toastState.dismiss} />
 
 {#if shares.length === 0}
 	<div class="card border border-base-300 bg-base-100 shadow-sm">
@@ -212,8 +218,7 @@
 				// to-do: figure out why calling update() removes the id but not the others
 				return async ({ result }) => {
 					if (result.type === 'success' && result.data?.success) {
-						successMessage = m.share_update_success();
-						errorMessage = '';
+						toastState.push('success', m.share_update_success());
 						shares = shares.map((share) =>
 							share.id === actionId ? (result.data?.data as ShareListItem) : share
 						);
@@ -221,8 +226,11 @@
 						return;
 					}
 
-					const error = 'data' in result ? result.data?.errorMessage : null;
-					errorMessage = error ?? m.share_update_failed();
+					const error =
+						'data' in result && typeof result.data?.errorMessage === 'string'
+							? result.data.errorMessage
+							: null;
+					toastState.push('error', error ?? m.share_update_failed());
 				};
 			}}
 		>
@@ -331,15 +339,17 @@
 					// to-do: figure out why calling update() removes the id but not the others
 					return async ({ result }) => {
 						if (result.type === 'success' && result.data?.success) {
-							successMessage = m.share_delete_success();
-							errorMessage = '';
+							toastState.push('success', m.share_delete_success());
 							shares = shares.filter((share) => share.id !== actionId);
 							getDialog(DELETE_DIALOG_ID)?.close();
 							return;
 						}
 
-						const error = 'data' in result ? result.data?.errorMessage : null;
-						errorMessage = error ?? m.share_delete_failed();
+						const error =
+							'data' in result && typeof result.data?.errorMessage === 'string'
+								? result.data.errorMessage
+								: null;
+						toastState.push('error', error ?? m.share_delete_failed());
 					};
 				}}
 			>

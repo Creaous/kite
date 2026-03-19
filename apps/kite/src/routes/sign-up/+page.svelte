@@ -2,20 +2,29 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import Icon from '@iconify/svelte';
+	import ToastViewport from '$lib/components/ToastViewport.svelte';
+	import { createToastState } from '$lib/components/toast/toast-state.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props();
 
 	let name = $state('');
 	let email = $state('');
 	let password = $state('');
-	let errorMessage = $state('');
+	const toastState = createToastState();
 	let isSubmitting = $state(false);
+
+	onDestroy(() => {
+		toastState.destroy();
+	});
 </script>
 
 <svelte:head>
 	<title>{m.auth_sign_up()} | {data.branding?.appName || m.app_name()}</title>
 </svelte:head>
+
+<ToastViewport toasts={toastState.toasts} onDismiss={toastState.dismiss} />
 
 <section class="mx-auto max-w-md">
 	<div class="card border border-base-300 bg-base-100 shadow-sm">
@@ -28,14 +37,16 @@
 			<form
 				method="POST"
 				use:enhance={() => {
-					errorMessage = '';
 					isSubmitting = true;
 					return async ({ result, update }) => {
 						await update();
 						if (result.type === 'failure') {
-							const actionError = (result.data as { errorMessage?: string } | undefined)
-								?.errorMessage;
-							errorMessage = actionError ?? m.auth_unable_sign_up();
+							const actionError =
+								typeof (result.data as { errorMessage?: unknown } | undefined)?.errorMessage ===
+								'string'
+									? (result.data as { errorMessage?: string }).errorMessage
+									: null;
+							toastState.push('error', actionError ?? m.auth_unable_sign_up());
 						}
 						isSubmitting = false;
 					};
@@ -80,10 +91,6 @@
 					{isSubmitting ? m.auth_creating_account() : m.auth_create_account()}
 				</button>
 			</form>
-
-			{#if errorMessage}
-				<div role="alert" class="alert alert-error"><span>{errorMessage}</span></div>
-			{/if}
 
 			<p class="text-sm text-base-content/70">
 				{m.auth_has_account()}

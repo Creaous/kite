@@ -119,6 +119,15 @@ describe('hooks audit helper mapping', () => {
 		).toEqual({ type: 'settings', id: '/api/v1/admin/alert-settings' });
 	});
 
+	it('maps create-share form post on / to share creation audit action', () => {
+		const searchParams = new URLSearchParams('');
+
+		expect(__test_only.deriveRouteAction('/', 'POST', 200, searchParams)).toBe('share.created');
+		expect(__test_only.deriveRouteAction('/', 'POST', 400, searchParams)).toBe(
+			'share.create.failed'
+		);
+	});
+
 	it('expands indexed action data payload to readable object', () => {
 		const expanded = __test_only.expandActionResultData({
 			type: 'success',

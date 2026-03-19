@@ -405,6 +405,10 @@ function deriveRouteAction(
 		return status >= 400 ? 'auth.sign_in.failed' : 'auth.sign_in';
 	}
 
+	if (pathname === '/' && method === 'POST') {
+		return status >= 400 ? 'share.create.failed' : 'share.created';
+	}
+
 	if (pathname === '/api/v1/shares' && method === 'POST') {
 		return status >= 400 ? 'share.create.failed' : 'share.created';
 	}
