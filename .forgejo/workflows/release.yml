@@ -83,17 +83,54 @@ jobs:
           max_attempts=80
           sleep_seconds=15
 
+          tests_workflow_id=""
+          tests_workflow_path=".forgejo/workflows/tests.yml"
+
+          workflows_response="$(curl -fsSL \
+            -H "Authorization: token ${token}" \
+            -H "Accept: application/json" \
+            "${api_url}/repos/${repo}/actions/workflows?limit=100")"
+
+          tests_workflow_id="$(printf '%s' "$workflows_response" | jq -r --arg path "$tests_workflow_path" '
+            ((.workflows // .data // [])
+              | map(select((.name // "") == "Tests" or ((.path // .file_name // "") | endswith($path))))
+              | sort_by(.id // 0)
+              | last
+              | .id) // empty
+          ')"
+
+          if [ -n "$tests_workflow_id" ]; then
+            echo "Resolved Tests workflow id=${tests_workflow_id}."
+          else
+            echo "Could not resolve Tests workflow id from workflows API; using runs list fallback."
+          fi
+
           echo "Waiting for Tests workflow to complete for sha=${sha} ref=${ref_name}"
 
           for attempt in $(seq 1 "$max_attempts"); do
-            response="$(curl -fsSL \
-              -H "Authorization: token ${token}" \
-              -H "Accept: application/json" \
-              "${api_url}/repos/${repo}/actions/runs?event=push&branch=${ref_name}&limit=50")"
+            if [ -n "$tests_workflow_id" ]; then
+              response="$(curl -fsSL \
+                -H "Authorization: token ${token}" \
+                -H "Accept: application/json" \
+                "${api_url}/repos/${repo}/actions/workflows/${tests_workflow_id}/runs?branch=${ref_name}&event=push&limit=50")"
+            else
+              response="$(curl -fsSL \
+                -H "Authorization: token ${token}" \
+                -H "Accept: application/json" \
+                "${api_url}/repos/${repo}/actions/runs?limit=100")"
+            fi
 
             run_json="$(printf '%s' "$response" | jq -c --arg sha "$sha" '
               ((.workflow_runs // .runs // .data // [])
-                | map(select((.head_sha // .head_commit.id // "") == $sha and ((.name // .workflow_name // "") == "Tests")))
+                | map(select(
+                    ((.head_sha // .head_commit.id // .head_commit.sha // .sha // "") == $sha)
+                    and
+                    (
+                      ((.name // .workflow_name // "") == "Tests")
+                      or
+                      ((.path // .workflow_path // "") | endswith("/tests.yml"))
+                    )
+                  ))
                 | sort_by(.id // .run_number // 0)
                 | last) // empty
             ')"
