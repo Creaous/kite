@@ -89,15 +89,17 @@ jobs:
           workflows_response="$(curl -fsSL \
             -H "Authorization: token ${token}" \
             -H "Accept: application/json" \
-            "${api_url}/repos/${repo}/actions/workflows?limit=100")"
+            "${api_url}/repos/${repo}/actions/workflows?limit=100" || true)"
 
-          tests_workflow_id="$(printf '%s' "$workflows_response" | jq -r --arg path "$tests_workflow_path" '
-            ((.workflows // .data // [])
-              | map(select((.name // "") == "Tests" or ((.path // .file_name // "") | endswith($path))))
-              | sort_by(.id // 0)
-              | last
-              | .id) // empty
-          ')"
+          if [ -n "$workflows_response" ]; then
+            tests_workflow_id="$(printf '%s' "$workflows_response" | jq -r --arg path "$tests_workflow_path" '
+              ((.workflows // .data // [])
+                | map(select((.name // "") == "Tests" or ((.path // .file_name // "") | endswith($path))))
+                | sort_by(.id // 0)
+                | last
+                | .id) // empty
+            ')"
+          fi
 
           if [ -n "$tests_workflow_id" ]; then
             echo "Resolved Tests workflow id=${tests_workflow_id}."
@@ -112,7 +114,15 @@ jobs:
               response="$(curl -fsSL \
                 -H "Authorization: token ${token}" \
                 -H "Accept: application/json" \
-                "${api_url}/repos/${repo}/actions/workflows/${tests_workflow_id}/runs?branch=${ref_name}&event=push&limit=50")"
+                "${api_url}/repos/${repo}/actions/workflows/${tests_workflow_id}/runs?branch=${ref_name}&event=push&limit=50" || true)"
+
+              if [ -z "$response" ]; then
+                echo "Tests workflow runs endpoint unavailable for id=${tests_workflow_id}; falling back to repository runs endpoint."
+                response="$(curl -fsSL \
+                  -H "Authorization: token ${token}" \
+                  -H "Accept: application/json" \
+                  "${api_url}/repos/${repo}/actions/runs?limit=100")"
+              fi
             else
               response="$(curl -fsSL \
                 -H "Authorization: token ${token}" \
