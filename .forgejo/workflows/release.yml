@@ -1,11 +1,9 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - develop
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,6 +14,7 @@ concurrency:
 
 jobs:
   release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: docker
     timeout-minutes: 30
     permissions:
@@ -59,7 +58,9 @@ jobs:
           fi
 
           git "${auth_header[@]}" fetch --force --prune --tags origin
-          git checkout -f "${GITHUB_SHA}"
+          # When triggered by workflow_run, use the head SHA from the triggering workflow
+          sha="${GITHUB_SHA:-${{ github.event.workflow_run.head_sha }}}"
+          git checkout -f "${sha}"
           git clean -fd
 
       - name: Verify immutable tag source

@@ -24,7 +24,7 @@ The only official repositories for Kite are on:
 
 - [CodeGuilds](https://git.codeguilds.org/Mitchell/kite) - main
 - [GitHub](https://github.com/Creaous/kite) - mirror
-- Codeberg (coming soon) - mirror
+- [Codeberg](https://codeberg.org/Creaous/kite) - mirror
 
 Docker images will only be published on CodeGuilds.
 

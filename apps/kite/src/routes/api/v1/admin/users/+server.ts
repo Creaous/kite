@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-import { and, desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';

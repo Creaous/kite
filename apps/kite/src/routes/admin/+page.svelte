@@ -146,6 +146,40 @@
 		getInitialAlertSettings().shareFlowAlert?.type ?? 'info'
 	);
 
+	/*
+	 When the page `data` is invalidated (after a successful save) the top-level
+	 `data` prop updates but the `$state` variables above do not automatically
+	 reflect those new values. Add reactive updates so the form fields reflect the
+	 latest persisted settings after the load is refreshed.
+	*/
+	$: if (data?.brandingSettings) {
+		const b = getInitialBranding();
+		brandingAppName = b.appName ?? m.app_name();
+		brandingTagline = b.tagline ?? '';
+		brandingLogoUrl = b.logoUrl ?? '';
+		brandingFaviconUrl = b.faviconUrl ?? '';
+		brandingDisableIndexing = Boolean(b.disableIndexing);
+	}
+
+	$: if (data?.authSettingsData) {
+		const a = getInitialAuthSettings();
+		registrationEnabled = Boolean(a.registrationEnabled);
+		anonymousTokensEnabled = Boolean(a.anonymousTokensEnabled);
+		publicApiEnabled = Boolean(a.publicApiEnabled ?? true);
+		availableSocialProviders = a.availableSocialProviders ?? [];
+		enabledSocialProviders = a.enabledSocialProviders ?? [];
+	}
+
+	$: if (data?.alertSettingsData) {
+		const s = getInitialAlertSettings();
+		globalAnnouncementEnabled = Boolean(s.globalAnnouncement?.enabled);
+		globalAnnouncementMessage = s.globalAnnouncement?.message ?? '';
+		globalAnnouncementType = s.globalAnnouncement?.type ?? 'info';
+		shareFlowAlertEnabled = Boolean(s.shareFlowAlert?.enabled);
+		shareFlowAlertMessage = s.shareFlowAlert?.message ?? '';
+		shareFlowAlertType = s.shareFlowAlert?.type ?? 'info';
+	}
+
 	let maintenanceQueues = $derived<MaintenanceQueueStatus[]>(data.maintenanceData?.queues ?? []);
 	let maintenanceRefreshedAt = $derived<string | null>(data.maintenanceData?.refreshedAt ?? null);
 	let auditLogs = $derived<AuditLogEntry[]>(data.auditLogsData?.logs ?? []);
