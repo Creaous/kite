@@ -33,19 +33,41 @@ export async function expireUnusedUploads(options?: { olderThanMinutes?: number;
 		.set({ deletedAt: now })
 		.where(and(isNull(uploads.deletedAt), inArray(uploads.id, candidateIds)));
 
+	const storagePaths = Array.from(
+		new Set(
+			candidates
+				.map((candidate) => candidate.storagePath)
+				.filter((path): path is string => Boolean(path))
+		)
+	);
+
+	const referencedPaths = new Set<string>();
+	if (storagePaths.length > 0) {
+		const stillReferencedRows = await db
+			.select({ storagePath: uploads.storagePath })
+			.from(uploads)
+			.where(
+				and(
+					isNull(uploads.deletedAt),
+					isNotNull(uploads.storagePath),
+					inArray(uploads.storagePath, storagePaths)
+				)
+			);
+
+		for (const row of stillReferencedRows) {
+			if (row.storagePath) referencedPaths.add(row.storagePath);
+		}
+	}
+
 	let removedFromDisk = 0;
+	const removedPaths = new Set<string>();
 	for (const candidate of candidates) {
 		if (!candidate.storagePath) continue;
-
-		const [stillReferenced] = await db
-			.select({ id: uploads.id })
-			.from(uploads)
-			.where(and(isNull(uploads.deletedAt), eq(uploads.storagePath, candidate.storagePath)))
-			.limit(1);
-
-		if (stillReferenced) continue;
+		if (referencedPaths.has(candidate.storagePath)) continue;
+		if (removedPaths.has(candidate.storagePath)) continue;
 
 		await rm(candidate.storagePath, { force: true }).catch(() => undefined);
+		removedPaths.add(candidate.storagePath);
 		removedFromDisk += 1;
 	}
 

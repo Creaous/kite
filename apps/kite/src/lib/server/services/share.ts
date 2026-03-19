@@ -54,6 +54,14 @@ export async function createShare(dto: CreateShareDTO) {
 		throw new Error('Invalid share payload: missing uploads');
 	}
 
+	const requestedUploadIds = Array.from(
+		new Set(dto.uploads.filter((upload) => upload?.uploadId).map((upload) => upload.uploadId))
+	);
+
+	if (requestedUploadIds.length === 0) {
+		throw new Error('Invalid share payload: missing uploads');
+	}
+
 	let code = generateCode();
 	for (let i = 0; i < 5; i++) {
 		const [exists] = await db
@@ -97,14 +105,16 @@ export async function createShare(dto: CreateShareDTO) {
 		})
 		.returning();
 
+	const existingUploads = await db
+		.select({ id: uploads.id, uploadedBy: uploads.uploadedBy })
+		.from(uploads)
+		.where(and(inArray(uploads.id, requestedUploadIds), isNull(uploads.deletedAt)));
+	const uploadsById = new Map(existingUploads.map((upload) => [upload.id, upload]));
+
 	for (const u of dto.uploads) {
 		if (!u || !u.uploadId) continue;
 
-		const [found] = await db
-			.select({ id: uploads.id, uploadedBy: uploads.uploadedBy })
-			.from(uploads)
-			.where(and(eq(uploads.id, u.uploadId), isNull(uploads.deletedAt)))
-			.limit(1);
+		const found = uploadsById.get(u.uploadId);
 		if (!found) throw new Error(`Upload not found: ${u.uploadId}`);
 
 		if (dto.actorUserId && !dto.actorIsAdmin) {
