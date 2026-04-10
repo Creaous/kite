@@ -8,15 +8,15 @@
     "./svelte": "./svelte.js"
   },
   "devDependencies": {
-    "@eslint/compat": "^2.0.3",
+    "@eslint/compat": "^2.0.5",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.1.0",
+    "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-only-warn": "^1.2.1",
-    "eslint-plugin-svelte": "^3.16.0",
-    "eslint-plugin-turbo": "^2.8.20",
+    "eslint-plugin-svelte": "^3.17.0",
+    "eslint-plugin-turbo": "^2.9.5",
     "globals": "^17.4.0",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.57.2"
+    "typescript-eslint": "^8.58.1"
   }
 }
