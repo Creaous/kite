@@ -13,8 +13,8 @@
     "version:app:major": "npm --prefix apps/kite version major --no-git-tag-version"
   },
   "devDependencies": {
-    "prettier": "^3.8.1",
-    "turbo": "^2.9.5",
+    "prettier": "^3.8.3",
+    "turbo": "^2.9.6",
     "typescript": "6.0.2"
   },
   "packageManager": "pnpm@10.33.0",
